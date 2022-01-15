@@ -1,22 +1,24 @@
 #pragma once
-#include "World.h"
+#include "FrameManager.h"
 
 #include <SDL.h>
+#include <chrono>
 
 class App {
 public:
 	App();
 	void Loop();
-	void Render();
-	float TimedRender();
+	void PresentRender();
+	void SleepForSteadyFPS();
 	bool HandleEvent(SDL_Event* e);
 	~App();
 private:
-	World world;
 	bool programOpen = false;
+	std::chrono::time_point<std::chrono::steady_clock> lastExecution;
+
+	FrameManager frameManager;
 
 	SDL_Window* window = nullptr;
 	SDL_Renderer* renderer = nullptr;
 	SDL_Texture* texture = nullptr;
-	std::array<uint8_t, WINDOW_WIDTH * WINDOW_HEIGHT * 4> texturePixels;
 };

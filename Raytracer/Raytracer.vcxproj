@@ -155,11 +155,15 @@
   <ItemGroup>
     <ClInclude Include="src\App.h" />
     <ClInclude Include="src\Constants.h" />
+    <ClInclude Include="src\DataUtility.h" />
+    <ClInclude Include="src\FrameManager.h" />
     <ClInclude Include="src\stb_image\stb_image.h" />
     <ClInclude Include="src\World.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\App.cpp" />
+    <ClCompile Include="src\DataUtility.cpp" />
+    <ClCompile Include="src\FrameManager.cpp" />
     <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\stb_image\stb_image.cpp" />
     <ClCompile Include="src\World.cpp" />
