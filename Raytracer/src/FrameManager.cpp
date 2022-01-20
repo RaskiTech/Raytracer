@@ -1,11 +1,9 @@
 #include "FrameManager.h"
 
 void FrameManager::StartNewFrame() {
-	std::cout << "Starting new frame" << std::endl;
-
 	// Wait for all the threads to stop calculating
 	threadState = ThreadState::Quit;
-	while (workingThreadAmount != 0)
+	while (runningThreadAmount != 0)
 		std::this_thread::sleep_for(std::chrono::microseconds(5));
 
 	memset(&texturePixels, 0, texturePixels.size());
@@ -21,7 +19,6 @@ void FrameManager::StartNewFrame() {
 	catch (...) {
 		throw;
 	}
-
 }
 
 bool FrameManager::NeedUpdatingTexture() {
@@ -58,6 +55,8 @@ void FrameManager::ThreadWork(uint32_t threadIndex) {
 	const uint32_t endIndex = ((threadIndex+1) * texturePixels.size()) / EXTRA_THREAD_COUNT;
 	uint32_t currentPixelIndex = startIndex;
 
+	uint32_t nextSpreadStartOffset = 1;
+
 	while (true) {
 		while (threadState == ThreadState::Work) {
 			glm::vec3 col = world.CalculateColorForScreenPosition((currentPixelIndex / 4) % WINDOW_WIDTH, (currentPixelIndex / 4) / WINDOW_WIDTH);
@@ -65,10 +64,15 @@ void FrameManager::ThreadWork(uint32_t threadIndex) {
 			texturePixels[currentPixelIndex + 1] = col.b;
 			texturePixels[currentPixelIndex + 2] = col.g;
 			texturePixels[currentPixelIndex + 3] = col.r;
-			currentPixelIndex += 4;
+			currentPixelIndex += 4 * PIXEL_CALCULATING_OREDER_SPREAD;
+
+			if (currentPixelIndex > endIndex) {
+				currentPixelIndex = startIndex + nextSpreadStartOffset * 4;
+				nextSpreadStartOffset++;
+			}
 
 			// Quit if this thread is complete
-			if (currentPixelIndex == endIndex) {
+			if (nextSpreadStartOffset > PIXEL_CALCULATING_OREDER_SPREAD) {
 				workingThreadAmount--;
 				runningThreadAmount--;
 				return;

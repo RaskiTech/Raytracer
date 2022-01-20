@@ -26,6 +26,8 @@ App::App() {
 	lastExecution = std::chrono::steady_clock::now();
 
 	texture = SDL_CreateTexture(renderer, SDL_PixelFormatEnum::SDL_PIXELFORMAT_RGBA8888, SDL_TextureAccess::SDL_TEXTUREACCESS_TARGET, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+	SDL_SetRelativeMouseMode(SDL_TRUE);
 }
 App::~App() {
 	SDL_DestroyTexture(texture);
@@ -45,10 +47,11 @@ void App::Loop() {
 		while (SDL_PollEvent(&event))
 			needReRendering |= HandleEvent(&event);
 
+		needReRendering |= HandleMovement();
+		PresentRender();
+
 		if (needReRendering)
 			frameManager.StartNewFrame();
-		else
-			PresentRender();
 
 		SleepForSteadyFPS();
 	}
@@ -85,17 +88,50 @@ void App::SleepForSteadyFPS() {
 bool App::HandleEvent(SDL_Event* e) {
 	if (e->type == SDL_QUIT) {
 		programOpen = false;
-		return false;
 	}
-	if (e->type == SDL_KEYDOWN) {
-		if (e->key.keysym.sym == SDLK_SPACE) {
-			frameManager.world.camera.SetForwardVector(glm::rotateY(frameManager.world.camera.GetForwardVector(), 0.5f));
-			frameManager.world.camera.pos = glm::rotateY(frameManager.world.camera.pos, 0.5f);
-			return true;
-		}
 
-		return false;
+#if CAN_MOVE_CAMERA
+	if (e->type == SDL_MOUSEMOTION) {
+		World& world = frameManager.GetWorld();
+		world.camera.SetForwardVector(world.camera.GetForwardVector() - MOUSE_SENSITIVITY * ((float)e->motion.xrel * world.camera.GetUDirection() + (float)e->motion.yrel * world.camera.GetVDirection()));
+		return true;
 	}
+#endif
 
 	return false;
+}
+
+bool App::HandleMovement() {
+	const Uint8* keystate = SDL_GetKeyboardState(NULL);
+	World& world = frameManager.GetWorld();
+	bool renderAgain = false;
+
+#if CAN_MOVE_CAMERA
+	if (keystate[SDL_SCANCODE_D]) {
+		glm::vec3 dir = world.camera.GetUDirection();
+		dir.y = 0;
+		world.camera.pos -= dir * (float)MOVEMENT_SPEED;
+		renderAgain = true;
+	}
+	if (keystate[SDL_SCANCODE_A]) {
+		glm::vec3 dir = world.camera.GetUDirection();
+		dir.y = 0;
+		world.camera.pos += dir * (float)MOVEMENT_SPEED;
+		renderAgain = true;
+	}
+	if (keystate[SDL_SCANCODE_W]) {
+		glm::vec3 dir = world.camera.GetForwardVector();
+		dir.y = 0;
+		world.camera.pos += dir * (float)MOVEMENT_SPEED;
+		renderAgain = true;
+	}
+	if (keystate[SDL_SCANCODE_S]) {
+		glm::vec3 dir = world.camera.GetForwardVector();
+		dir.y = 0;
+		world.camera.pos -= dir * (float)MOVEMENT_SPEED;
+		renderAgain = true;
+	}
+#endif
+
+	return renderAgain;
 }

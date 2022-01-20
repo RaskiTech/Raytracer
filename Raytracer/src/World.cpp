@@ -45,7 +45,7 @@ World::World() :
 
 	objects.push_back({ { 8, 2, -4}, glm::vec3{0}, 2, ObjectType::Sphere, Material({ 1.0f, 1.0f, 1.0f}, 0.0f) });
 	for (int i = 0; i < 30; i++)
-		objects.push_back({ glm::vec3{i*2.5f, 1, glm::sin(i*5.1f)+glm::pow(i/8, 2)}, glm::vec3{0}, 1, ObjectType::Sphere, Material({glm::sin(i), glm::sin(i * 1.7f), glm::sin(i * 3.3f)}, 0.0f) });
+		objects.push_back({ glm::vec3{i * 2.5f, glm::sin(i * 78.0f) * 1.9f + 1.0f, 15.0f * glm::sin(i * 34.4f)}, glm::vec3{0}, glm::sin(i * 78.0f) * 1.9f + 1.0f, ObjectType::Sphere, Material({glm::sin(i), glm::sin(i * 1.7f), glm::sin(i * 3.3f)}, 0.0f) });
 
 	lightVector = glm::normalize(lightVector);
 }

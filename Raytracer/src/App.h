@@ -11,6 +11,7 @@ public:
 	void PresentRender();
 	void SleepForSteadyFPS();
 	bool HandleEvent(SDL_Event* e);
+	bool HandleMovement();
 	~App();
 private:
 	bool programOpen = false;
