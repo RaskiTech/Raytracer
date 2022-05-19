@@ -1,4 +1,6 @@
 #include "World.h"
+#include "DataUtility.h"
+#include "Object.h"
 #include "Constants.h"
 
 #include <iostream>
@@ -6,48 +8,38 @@
 #include <glm.hpp>
 #include <gtx/compatibility.hpp>
 
-#include <cstdlib>
-static float Random01() { return ((float)rand() / (float)RAND_MAX); }
-static glm::vec3 GetRandomUnitSpherePoint() {
-	while (true) {
-		glm::vec3 sample = { Random01(), Random01(), Random01() };
-		if (sample.x + sample.y + sample.z < 1.0f)
-			return sample - 0.5f;
-	}
+//////////////////////////////////
+///////// Scene objects //////////
+//////////////////////////////////
+
+std::vector<Object*> CreateNoBoundingBoxObjects() {
+	std::vector<Object*> objs = std::vector<Object*>();
+	objs.push_back(new YPlane(0, Material::CreateDiffuse({ 0.9f, 0.9f, 0.9f })));
+	return objs;
 }
-static glm::vec2 GetRandomUnitCirclePoint() {
-	while (true) {
-		glm::vec2 sample = { Random01(), Random01() };
-		if (sample.x + sample.y < 1.0f)
-			return sample - 0.5f;
-	}
-}
-
-World::World() : 
-	objects({
-		Object(glm::vec3{0, 0, 0},  glm::vec3{0, 0, 0}, 1, ObjectType::PlaneY, Material({ 0.8f, 0.8f, 0.8f }, 0.0f)),
-
-		/*
-		//Camera{ glm::vec3{ -13, 3, -0.5f }, glm::vec3{ 3, -0.5f, -1.0f } }
-		Object(glm::vec3{5, 3, -7}, glm::vec3{0, 0, 0}, 3, ObjectType::Sphere, Material({ 0.2f, 0.3f, 0.8f }, 0.0f)),
-		Object(glm::vec3{-4, 2, 0}, glm::vec3{0, 0, 0}, 2, ObjectType::Sphere, Material({ 0.2f, 0.8f, 0.3f }, 1.0f)),
-		Object(glm::vec3{1, 2, 6}, glm::vec3{0, 0, 0}, 2, ObjectType::Sphere, Material({ 0.9f, 0.9f, 0.9f }, 0.1f)),
-		Object(glm::vec3{-5, 0.75f, 3}, glm::vec3{0, 0, 0}, 0.75f, ObjectType::Sphere, Material({ 0.2f, 0.8f, 0.3f }, 0.3f)),
-		Object(glm::vec3{-3, 1, -6}, glm::vec3{0, 0, 0}, 1, ObjectType::Sphere, Material({ 0.9f, 0.9f, 0.9f }, 0.9f)),
-		Object(glm::vec3{17, 5, 8}, glm::vec3{0, 0, 0}, 5, ObjectType::Sphere, Material({ 0.2f, 0.8f, 0.3f }, 0.0f)),
-		Object(glm::vec3{0, 2, -20}, glm::vec3{0, 0, 0}, 2, ObjectType::Sphere, Material({ 0.9f, 0.9f, 0.9f }, 0.0f)),
-		*/
-
-	}),
-	camera({ glm::vec3{ 1, 3, 4 }, glm::vec3{ 3, -0.5f, -3.0f } }),
-	skybox("src/stb_image/skybox12.png")
-{
-
-	objects.push_back({ { 8, 2, -4}, glm::vec3{0}, 2, ObjectType::Sphere, Material({ 1.0f, 1.0f, 1.0f}, 0.0f) });
+BVH_Node CreateBoundingBoxObjects() {
+	std::vector<Object*> objects = std::vector<Object*>();
+	objects.push_back(new Sphere{ { 8, 2, -4}, 2, Material::CreateDiffuse({ 1.0f, 1.0f, 1.0f}) });
 	for (int i = 0; i < 30; i++)
-		objects.push_back({ glm::vec3{i * 2.5f, glm::sin(i * 78.0f) * 1.9f + 1.0f, 15.0f * glm::sin(i * 34.4f)}, glm::vec3{0}, glm::sin(i * 78.0f) * 1.9f + 1.0f, ObjectType::Sphere, Material({glm::sin(i), glm::sin(i * 1.7f), glm::sin(i * 3.3f)}, 0.0f) });
+		objects.push_back(new Sphere{ glm::vec3{i * 2.5f, glm::sin(i * 78.0f) * 1.9f + 1.0f, 15.0f * glm::sin(i * 34.4f)}, glm::sin(i * 78.0f) * 1.9f + 1.0f, Material::CreateDiffuse({glm::sin(i), glm::sin(i * 1.7f), glm::sin(i * 3.3f)}) });
 
+	// This object now owns the pointers, and is responsible for deleting them
+	return BVH_Node(objects);
+}
+
+World::World()
+  : camera({ glm::vec3{ 1, 3, 4 }, 
+	glm::vec3{ 3, -0.5f, -3.0f } }), 
+	skybox("src/stb_image/skybox12.png"), 
+	rootNode(CreateBoundingBoxObjects()),
+	noBoundingBoxObjects(CreateNoBoundingBoxObjects())
+{
 	lightVector = glm::normalize(lightVector);
+}
+
+World::~World() {
+	for (Object* obj : noBoundingBoxObjects)
+		delete obj;
 }
 
 glm::u8vec3 World::CalculateColorForScreenPosition(int x, int y) {
@@ -87,123 +79,66 @@ glm::u8vec3 World::CalculateColorForScreenPosition(int x, int y) {
 glm::vec3 World::GetRayColor(const Ray& ray, int bounceAmount) {
 	glm::vec3 hitPoint;
 	glm::vec3 hitNormal;
-	int obj = -1;
-	float distance;
+	Object* hitObj = nullptr;
+	float distance = std::numeric_limits<float>::max();
+	rootNode.Intersect(ray, hitObj, hitPoint, hitNormal, distance);
 	{
 		glm::vec3 thisHitPoint;
 		glm::vec3 thisHitNormal;
-		float minDistanceHit = std::numeric_limits<float>::max();
-		for (int i = 0; i < objects.size(); i++) {
-			if (!Intersect(i, ray, thisHitPoint, thisHitNormal, distance))
+		Object* thisObj;
+		float thisDistance;
+		//*
+		for (int i = 0; i < noBoundingBoxObjects.size(); i++) {
+			if (!noBoundingBoxObjects[i]->Intersect(ray, thisObj, thisHitPoint, thisHitNormal, thisDistance))
 				continue;
 
-			if (distance < minDistanceHit) {
-				obj = i;
+			if (thisDistance < distance) {
+				hitObj = thisObj;
 				hitPoint = thisHitPoint;
 				hitNormal = thisHitNormal;
-				minDistanceHit = distance;
+				distance = thisDistance;
 			}
 		}
+		//*/
 	}
 
-	if (obj == -1)
+	if (hitObj == nullptr)
 		return GetSkyboxPixel(ray.direction);
 
-	Ray reflectedRay;
+	const Material& material = hitObj->material;
+	switch (material.materialType)
+	{
+		case MaterialType::Diffuse: {
+			const float lightDarknerFactor = 0.5f;
 
-	/* Diffuse */
-	if (objects[obj].material.reflectiveness == 0.0f) {
-		const float lightDarknerFactor = 0.5f;
+			if (bounceAmount == 0)
+				return glm::vec3{ 0 };
 
-		if (bounceAmount == 0)
-			return glm::vec3{ 0 };
+			Ray reflectedRay;
+			reflectedRay.direction = glm::normalize(hitNormal + 2.0f * GetRandomUnitSpherePoint());
+			reflectedRay.pos = hitPoint;
 
-		reflectedRay.direction = glm::normalize(hitNormal + 2.0f * GetRandomUnitSpherePoint());
-		reflectedRay.pos = hitPoint;
+			glm::vec3 pixelColor = lightDarknerFactor * GetRayColor(reflectedRay, bounceAmount - 1) * material.color;
 
-		glm::vec3 pixelColor = lightDarknerFactor * GetRayColor(reflectedRay, bounceAmount - 1) * objects[obj].material.color;
-
-		return pixelColor;
-	}
-	/* Metal */
-	else {
-		float shadowMultiplier = 1.0f - (1.0f - glm::clamp(glm::dot(hitNormal, lightVector) + 1.0f, 0.0f, 1.0f)) * SELF_SHADOW_INTENSITY;
-		if (bounceAmount == 0 || objects[obj].material.reflectiveness == 0)
-			return objects[obj].material.color * shadowMultiplier;
-
-		reflectedRay.pos = hitPoint;
-		reflectedRay.direction = ray.direction - 2.0f * hitNormal * glm::dot(ray.direction, hitNormal);
-
-		glm::vec3 pixelColor = (1.0f - objects[obj].material.reflectiveness) * objects[obj].material.color
-			+ objects[obj].material.reflectiveness * GetRayColor(reflectedRay, bounceAmount - 1);
-		return pixelColor * shadowMultiplier;
-	}
-}
-
-bool World::Intersect(const int& objectIndex, const Ray& ray, glm::vec3& outHitPoint, glm::vec3& outHitNormal, float& outDistance) {
-	switch (objects[objectIndex].type) {
-		case ObjectType::Plane: {
-			return false;
+			return pixelColor;
 		}
-		case ObjectType::PlaneY: {
-			float t = -ray.pos.y / ray.direction.y;
-			if (t < 1e-3)
-				return false;
+		case MaterialType::Metal: {
+			float shadowMultiplier = 1.0f - (1.0f - glm::clamp(glm::dot(hitNormal, lightVector) + 1.0f, 0.0f, 1.0f)) * SELF_SHADOW_INTENSITY;
+			if (bounceAmount == 0 || material.reflectiveness == 0)
+				return material.color * shadowMultiplier;
 
-			outDistance = t;
-			outHitPoint = ray.pos + t * ray.direction;
-			outHitNormal = { 0.0f, 1.0f, 0.0f };
-			return true;
-		}
-		case ObjectType::Sphere: {
-			glm::vec3 distance = ray.pos - objects[objectIndex].pos;
-			float p1 = -glm::dot(ray.direction, distance);
-			float p2sqr = p1 * p1 - glm::dot(distance, distance) + objects[objectIndex].scale * objects[objectIndex].scale;
-			if (p2sqr < 0)
-				return false;
-			outDistance = p1 - sqrt(p2sqr);
-			if (outDistance < 0)
-				return false;
-			outHitPoint = ray.pos + outDistance * ray.direction;
-			outHitNormal = glm::normalize(outHitPoint - objects[objectIndex].pos);
-			return true;
-		}
-		case ObjectType::Cube: {
-			/*
-			float tmin, tmax, tymin, tymax, tzmin, tzmax;
-			
+			Ray reflectedRay;
+			reflectedRay.pos = hitPoint;
+			reflectedRay.direction = ray.direction - 2.0f * hitNormal * glm::dot(ray.direction, hitNormal);
 
-			tmin = (bounds[r.sign[0]].x - r.orig.x) * r.invdir.x;
-			tmax = (bounds[1 - r.sign[0]].x - r.orig.x) * r.invdir.x;
-			tymin = (bounds[r.sign[1]].y - r.orig.y) * r.invdir.y;
-			tymax = (bounds[1 - r.sign[1]].y - r.orig.y) * r.invdir.y;
-
-			if ((tmin > tymax) || (tymin > tmax))
-				return false;
-			if (tymin > tmin)
-				tmin = tymin;
-			if (tymax < tmax)
-				tmax = tymax;
-
-			tzmin = (bounds[r.sign[2]].z - r.orig.z) * r.invdir.z;
-			tzmax = (bounds[1 - r.sign[2]].z - r.orig.z) * r.invdir.z;
-
-			if ((tmin > tzmax) || (tzmin > tmax))
-				return false;
-			if (tzmin > tmin)
-				tmin = tzmin;
-			if (tzmax < tmax)
-				tmax = tzmax;
-
-			return true;
-			*/
-			return false;
+			glm::vec3 pixelColor = (1.0f - material.reflectiveness) * material.color
+				+ material.reflectiveness * GetRayColor(reflectedRay, bounceAmount - 1);
+			return pixelColor * shadowMultiplier;
 		}
 		default:
-			return false;
+			return glm::vec3{ 0 };
 	}
 }
-
 
 glm::vec3 World::GetSkyboxPixel(const glm::vec3& direction) {
 	glm::vec2 pixel = glm::vec2{ (0.5f + glm::atan(direction.x, direction.z) / (glm::two_pi<float>())) * skybox.size.x, (0.5f - glm::asin(direction.y) / glm::pi<float>()) * skybox.size.y };

@@ -4,15 +4,16 @@
 #include <SDL.h>
 #include <chrono>
 
-class App {
+// Handles stopping the render threads and rendering to screen.
+class RayTracer {
 public:
-	App();
+	RayTracer();
 	void Loop();
 	void PresentRender();
 	void SleepForSteadyFPS();
 	bool HandleEvent(SDL_Event* e);
 	bool HandleMovement();
-	~App();
+	~RayTracer();
 private:
 	bool programOpen = false;
 	std::chrono::time_point<std::chrono::steady_clock> lastExecution;

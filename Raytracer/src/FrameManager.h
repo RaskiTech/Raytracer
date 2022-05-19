@@ -20,9 +20,10 @@ public:
 
 	World& GetWorld() { return world; }
 private:
+	World world;
+
 	void ThreadWork(uint32_t index);
 	
-	World world;
 	std::vector<std::thread> threads;
 	std::atomic<ThreadState> threadState = ThreadState::Work;
 	std::atomic<int> runningThreadAmount = 0;

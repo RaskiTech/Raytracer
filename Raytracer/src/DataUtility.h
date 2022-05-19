@@ -3,32 +3,52 @@
 #include <glm.hpp>
 #include <string>
 
-enum class ObjectType {
-	None, Plane/* In plane rotation is the normal vector*/, PlaneY, Sphere, Cube
-};
-struct Material {
-	Material() = default;
-	Material(glm::vec3 color, float reflectiveness = 0.1f) : reflectiveness(reflectiveness), color(color) {}
 
-	float reflectiveness = 0.1f;
-	glm::vec3 color = { 1, 1, 1 };
-};
-struct Object {
-	Object(glm::vec3 pos, glm::vec3 rotation, float scale, ObjectType type, Material mat)
-		: pos(pos), rotation(rotation), scale(scale), type(type), material(mat) {}
-	Object() = default;
-
-	glm::vec3 pos{ 0 };
-	glm::vec3 rotation{ 0 };
-	float scale = 0;
-	ObjectType type = ObjectType::None;
-	Material material = Material();
-};
+#include <cstdlib>
+static float Random01() { return ((float)rand() / (float)RAND_MAX); }
+static glm::vec3 GetRandomUnitSpherePoint() {
+	while (true) {
+		glm::vec3 sample = { Random01(), Random01(), Random01() };
+		if (sample.x + sample.y + sample.z < 1.0f)
+			return sample - 0.5f;
+	}
+}
+static glm::vec2 GetRandomUnitCirclePoint() {
+	while (true) {
+		glm::vec2 sample = { Random01(), Random01() };
+		if (sample.x + sample.y < 1.0f)
+			return sample - 0.5f;
+	}
+}
 
 struct Ray {
 	glm::vec3 pos{ 0 };
 	glm::vec3 direction{ 0 };
 };
+
+enum class MaterialType {
+	None, Diffuse, Metal
+};
+struct Material {
+	Material() = default;
+	static Material CreateDiffuse(glm::vec3 color) { return Material{ MaterialType::Diffuse, 0.0f, color }; }
+	static Material CreateMetal(glm::vec3 color, float reflectiveness) { return Material{ MaterialType::Metal, reflectiveness, color }; }
+
+	MaterialType materialType = MaterialType::None;
+	float reflectiveness = 0.0f;
+	glm::vec3 color = { 1, 1, 1 };
+};
+
+// Axis aligned boundeing box
+struct BoundingBox {
+	BoundingBox() = default;
+	BoundingBox(glm::vec3 minCoord, glm::vec3 maxCoord) : minCoord(minCoord), maxCoord(maxCoord) {}
+	bool DoesRayHit(const Ray& ray) const;
+
+	glm::vec3 minCoord{ 0 };
+	glm::vec3 maxCoord{ 0 };
+};
+
 
 struct Camera {
 	Camera(glm::vec3 pos, const glm::vec3& forwardVector) : pos(pos) { SetForwardVector(forwardVector); }

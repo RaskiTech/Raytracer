@@ -1,10 +1,10 @@
 #pragma once
 
 //  PROGRAM  //
-#define WINDOW_WIDTH 1280
-#define WINDOW_HEIGHT 720
-#define EXTRA_THREAD_COUNT 4 /* Positive intiger */
-#define FPS 30
+#define WINDOW_WIDTH 1280                  /* Positive intiger */
+#define WINDOW_HEIGHT 720                  /* Positive intiger */
+#define EXTRA_THREAD_COUNT 4               /* Positive intiger */
+#define FPS 24                             /* Positive intiger */
 #define PIXEL_CALCULATING_OREDER_SPREAD 37 /* Positive intiger */
 
 //  QUALITY  //

@@ -8,8 +8,7 @@
 #include <gtx/rotate_vector.hpp>
 #include <thread>
 
-
-App::App() {
+RayTracer::RayTracer() {
 	if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
 		programOpen = false;
 		return;
@@ -29,14 +28,14 @@ App::App() {
 
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 }
-App::~App() {
+RayTracer::~RayTracer() {
 	SDL_DestroyTexture(texture);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 }
 
-void App::Loop() {
+void RayTracer::Loop() {
 
 	// Render at start
 	frameManager.StartNewFrame();
@@ -57,7 +56,7 @@ void App::Loop() {
 	}
 }
 
-void App::PresentRender() {
+void RayTracer::PresentRender() {
 
 	// If nothing is happening don't bother updating the screen
 	if (!frameManager.NeedUpdatingTexture())
@@ -78,14 +77,14 @@ void App::PresentRender() {
 	frameManager.ContinueWorkingOnImage();
 }
 
-void App::SleepForSteadyFPS() {
+void RayTracer::SleepForSteadyFPS() {
 	auto time = std::chrono::steady_clock::now();
 	int deltaTime = std::chrono::duration_cast<std::chrono::milliseconds>(time - lastExecution).count();
 	std::this_thread::sleep_for(std::chrono::milliseconds((int)(1000.0f / (float)FPS) - deltaTime));
 	lastExecution = time;
 }
 
-bool App::HandleEvent(SDL_Event* e) {
+bool RayTracer::HandleEvent(SDL_Event* e) {
 	if (e->type == SDL_QUIT) {
 		programOpen = false;
 	}
@@ -93,7 +92,8 @@ bool App::HandleEvent(SDL_Event* e) {
 #if CAN_MOVE_CAMERA
 	if (e->type == SDL_MOUSEMOTION) {
 		World& world = frameManager.GetWorld();
-		world.camera.SetForwardVector(world.camera.GetForwardVector() - MOUSE_SENSITIVITY * ((float)e->motion.xrel * world.camera.GetUDirection() + (float)e->motion.yrel * world.camera.GetVDirection()));
+		Camera& camera = world.GetWorldCamera();
+		camera.SetForwardVector(camera.GetForwardVector() - MOUSE_SENSITIVITY * ((float)e->motion.xrel * camera.GetUDirection() + (float)e->motion.yrel * camera.GetVDirection()));
 		return true;
 	}
 #endif
@@ -101,34 +101,36 @@ bool App::HandleEvent(SDL_Event* e) {
 	return false;
 }
 
-bool App::HandleMovement() {
+bool RayTracer::HandleMovement() {
 	const Uint8* keystate = SDL_GetKeyboardState(NULL);
 	World& world = frameManager.GetWorld();
 	bool renderAgain = false;
 
+	Camera& camera = world.GetWorldCamera();
+
 #if CAN_MOVE_CAMERA
 	if (keystate[SDL_SCANCODE_D]) {
-		glm::vec3 dir = world.camera.GetUDirection();
+		glm::vec3 dir = camera.GetUDirection();
 		dir.y = 0;
-		world.camera.pos -= dir * (float)MOVEMENT_SPEED;
+		camera.pos -= dir * (float)MOVEMENT_SPEED;
 		renderAgain = true;
 	}
 	if (keystate[SDL_SCANCODE_A]) {
-		glm::vec3 dir = world.camera.GetUDirection();
+		glm::vec3 dir = camera.GetUDirection();
 		dir.y = 0;
-		world.camera.pos += dir * (float)MOVEMENT_SPEED;
+		camera.pos += dir * (float)MOVEMENT_SPEED;
 		renderAgain = true;
 	}
 	if (keystate[SDL_SCANCODE_W]) {
-		glm::vec3 dir = world.camera.GetForwardVector();
+		glm::vec3 dir = camera.GetForwardVector();
 		dir.y = 0;
-		world.camera.pos += dir * (float)MOVEMENT_SPEED;
+		camera.pos += dir * (float)MOVEMENT_SPEED;
 		renderAgain = true;
 	}
 	if (keystate[SDL_SCANCODE_S]) {
-		glm::vec3 dir = world.camera.GetForwardVector();
+		glm::vec3 dir = camera.GetForwardVector();
 		dir.y = 0;
-		world.camera.pos -= dir * (float)MOVEMENT_SPEED;
+		camera.pos -= dir * (float)MOVEMENT_SPEED;
 		renderAgain = true;
 	}
 #endif

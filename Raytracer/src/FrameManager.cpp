@@ -60,13 +60,14 @@ void FrameManager::ThreadWork(uint32_t threadIndex) {
 	while (true) {
 		while (threadState == ThreadState::Work) {
 			glm::vec3 col = world.CalculateColorForScreenPosition((currentPixelIndex / 4) % WINDOW_WIDTH, (currentPixelIndex / 4) / WINDOW_WIDTH);
+			int length = texturePixels.size();
 			texturePixels[currentPixelIndex] = 255;
 			texturePixels[currentPixelIndex + 1] = col.b;
 			texturePixels[currentPixelIndex + 2] = col.g;
 			texturePixels[currentPixelIndex + 3] = col.r;
 			currentPixelIndex += 4 * PIXEL_CALCULATING_OREDER_SPREAD;
 
-			if (currentPixelIndex > endIndex) {
+			if (currentPixelIndex >= endIndex) {
 				currentPixelIndex = startIndex + nextSpreadStartOffset * 4;
 				nextSpreadStartOffset++;
 			}
