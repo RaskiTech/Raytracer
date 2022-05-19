@@ -1,4 +1,7 @@
 #include "FrameManager.h"
+#include "Constants.h"
+#include <chrono>
+#include <sstream>
 
 void FrameManager::StartNewFrame() {
 	// Wait for all the threads to stop calculating
@@ -10,8 +13,8 @@ void FrameManager::StartNewFrame() {
 	threadState = ThreadState::Work;
 
 	try {
-		threads.reserve(EXTRA_THREAD_COUNT);
-		for (uint32_t i = 0; i < EXTRA_THREAD_COUNT; i++) {
+		threads.reserve(THREAD_COUNT);
+		for (uint32_t i = 0; i < THREAD_COUNT; i++) {
 			runningThreadAmount++;
 			threads.push_back(std::thread(&FrameManager::ThreadWork, this, i));
 		}
@@ -19,6 +22,10 @@ void FrameManager::StartNewFrame() {
 	catch (...) {
 		throw;
 	}
+
+#if LOG_BENCHMARK
+	frameStartTime = std::chrono::system_clock::now();
+#endif
 }
 
 bool FrameManager::NeedUpdatingTexture() {
@@ -26,9 +33,19 @@ bool FrameManager::NeedUpdatingTexture() {
 		return false;
 
 	if (runningThreadAmount == 0)
-		threadState = ThreadState::AllComplete;
+		FinishFrame();
 
 	return true;
+}
+
+void FrameManager::FinishFrame() {
+	threadState = ThreadState::AllComplete;
+
+#if LOG_BENCHMARK
+	auto endTime = std::chrono::system_clock::now();
+	std::chrono::duration<double> dur = endTime - frameStartTime;
+	std::cout << "Frame calculating time: " << dur.count() << std::endl;
+#endif
 }
 
 void* FrameManager::GetTexturePixelsToPresent() {
@@ -51,10 +68,11 @@ void FrameManager::ContinueWorkingOnImage() {
 
 void FrameManager::ThreadWork(uint32_t threadIndex) {
 	workingThreadAmount++;
-	const uint32_t startIndex = (threadIndex * texturePixels.size()) / EXTRA_THREAD_COUNT;
-	const uint32_t endIndex = ((threadIndex+1) * texturePixels.size()) / EXTRA_THREAD_COUNT;
-	uint32_t currentPixelIndex = startIndex;
+	const uint32_t pixelAmount = texturePixels.size() / 4;
+	const uint32_t startIndex = (threadIndex * pixelAmount) / THREAD_COUNT * 4;
+	const uint32_t endIndex = ((threadIndex+1) * pixelAmount) / THREAD_COUNT * 4;
 
+	uint32_t currentPixelIndex = startIndex;
 	uint32_t nextSpreadStartOffset = 1;
 
 	while (true) {

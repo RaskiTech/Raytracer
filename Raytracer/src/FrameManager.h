@@ -14,6 +14,8 @@ public:
 	void StartNewFrame();
 
 	bool NeedUpdatingTexture();
+	void FinishFrame();
+
 	// Waits for all the threads to join and returns texturePixels
 	void* GetTexturePixelsToPresent();
 	void ContinueWorkingOnImage();
@@ -21,6 +23,7 @@ public:
 	World& GetWorld() { return world; }
 private:
 	World world;
+	std::chrono::system_clock::time_point frameStartTime; // Benchmarking
 
 	void ThreadWork(uint32_t index);
 	
