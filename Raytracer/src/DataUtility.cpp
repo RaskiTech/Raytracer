@@ -5,6 +5,8 @@
 #include <string>
 #include <iostream>
 
+
+
 void Camera::SetForwardVector(const glm::vec3& lookVector) {
 	forwardVector = glm::normalize(lookVector);
 	
@@ -83,3 +85,29 @@ bool BoundingBox::DoesRayHit(const Ray& r) const {
 	return true;
 }
 
+glm::vec3 CheckeredTexture::GetColorValue(const glm::vec2& uv, const glm::vec3& p) const {
+
+	const float scale = 5.0f;
+
+	/*
+	float x = p.x == 0.0f ? p.x + 0.1f : p.x;
+	float y = p.y == 0.0f ? p.y + 0.1f : p.y;
+	float z = p.z == 0.0f ? p.z + 0.1f : p.z;
+	//*/
+
+//	if (0.99f < p.x) return { 0.8f, 0.3f, 0.2f };
+
+	//return p.x - (int)p.x > 0.99f ? color1 : color2;
+	//*
+	float x = p.x;
+	float y = p.y;
+	float z = p.z;
+	//*/
+	
+	float sines = glm::sin(scale * x) * glm::sin(scale * y) * glm::sin(scale * z);
+	if (sines < 0.0f)
+		return color1;
+	else
+		return color2;
+	
+}

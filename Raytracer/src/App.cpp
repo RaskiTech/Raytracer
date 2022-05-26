@@ -79,7 +79,7 @@ void RayTracer::PresentRender() {
 
 void RayTracer::SleepForSteadyFPS() {
 	auto time = std::chrono::steady_clock::now();
-	int deltaTime = std::chrono::duration_cast<std::chrono::milliseconds>(time - lastExecution).count();
+	int deltaTime = (int)std::chrono::duration_cast<std::chrono::milliseconds>(time - lastExecution).count();
 	std::this_thread::sleep_for(std::chrono::milliseconds((int)(1000.0f / (float)FPS) - deltaTime));
 	lastExecution = time;
 }

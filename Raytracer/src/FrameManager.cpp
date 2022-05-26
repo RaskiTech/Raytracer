@@ -2,6 +2,7 @@
 #include "Constants.h"
 #include <chrono>
 #include <sstream>
+#include <cstring>
 
 void FrameManager::StartNewFrame() {
 	// Wait for all the threads to stop calculating
@@ -68,7 +69,7 @@ void FrameManager::ContinueWorkingOnImage() {
 
 void FrameManager::ThreadWork(uint32_t threadIndex) {
 	workingThreadAmount++;
-	const uint32_t pixelAmount = texturePixels.size() / 4;
+	const uint32_t pixelAmount = (uint32_t)texturePixels.size() / 4;
 	const uint32_t startIndex = (threadIndex * pixelAmount) / THREAD_COUNT * 4;
 	const uint32_t endIndex = ((threadIndex+1) * pixelAmount) / THREAD_COUNT * 4;
 
@@ -78,11 +79,11 @@ void FrameManager::ThreadWork(uint32_t threadIndex) {
 	while (true) {
 		while (threadState == ThreadState::Work) {
 			glm::vec3 col = world.CalculateColorForScreenPosition((currentPixelIndex / 4) % WINDOW_WIDTH, (currentPixelIndex / 4) / WINDOW_WIDTH);
-			int length = texturePixels.size();
-			texturePixels[currentPixelIndex] = 255;
-			texturePixels[currentPixelIndex + 1] = col.b;
-			texturePixels[currentPixelIndex + 2] = col.g;
-			texturePixels[currentPixelIndex + 3] = col.r;
+			int length = (int)texturePixels.size();
+			texturePixels[currentPixelIndex + 0] = 255;
+			texturePixels[currentPixelIndex + 1] = (uint8_t)col.b;
+			texturePixels[currentPixelIndex + 2] = (uint8_t)col.g;
+			texturePixels[currentPixelIndex + 3] = (uint8_t)col.r;
 			currentPixelIndex += 4 * PIXEL_CALCULATING_OREDER_SPREAD;
 
 			if (currentPixelIndex >= endIndex) {

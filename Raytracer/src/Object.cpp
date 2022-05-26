@@ -1,19 +1,27 @@
 #include "Object.h"
 #include <iostream>
 #include <algorithm>
+#include <gtc/constants.hpp>
 
-bool Sphere::Intersect(const Ray& ray, Object*& outObj, glm::vec3& outHitPoint, glm::vec3& outHitNormal, float& outDistance) const {
+bool Sphere::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 	glm::vec3 distance = ray.pos - pos;
 	float p1 = -glm::dot(ray.direction, distance);
 	float p2sqr = p1 * p1 - glm::dot(distance, distance) + radius * radius;
 	if (p2sqr < 0)
 		return false;
-	outDistance = p1 - sqrt(p2sqr);
-	if (outDistance < 0)
+	
+	hitInfo.distance = p1 - sqrt(p2sqr);
+	if (hitInfo.distance < 0)
 		return false;
-	outHitPoint = ray.pos + outDistance * ray.direction;
-	outHitNormal = glm::normalize(outHitPoint - pos);
-	outObj = (Object*)this;
+
+	hitInfo.point = ray.pos + hitInfo.distance * ray.direction;
+	hitInfo.normal = glm::normalize(hitInfo.point - pos);
+	hitInfo.object = (Object*)this;
+
+	float theta = acos(-hitInfo.normal.y);
+	float phi = atan2(-hitInfo.normal.z, hitInfo.normal.x) + glm::pi<float>();
+	hitInfo.uv = glm::vec2(phi / (2 * glm::pi<float>()), theta / glm::pi<float>());
+
 	return true;
 }
 bool Sphere::GetBoundingBox(BoundingBox& outBox) const {
@@ -23,7 +31,7 @@ bool Sphere::GetBoundingBox(BoundingBox& outBox) const {
 	);
 	return true;
 }
-bool AxisAlignedCube::Intersect(const Ray& ray, Object*& outObj, glm::vec3& outHitPoint, glm::vec3& outHitNormal, float& outDistance) const {
+bool AxisAlignedCube::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 	std::cerr << "TODO: Alix aligned cube intersect function." << std::endl;
 	return false;
 }
@@ -35,15 +43,15 @@ bool AxisAlignedCube::GetBoundingBox(BoundingBox& outBox) const {
 	return true;
 }
 
-bool YPlane::Intersect(const Ray& ray, Object*& outObj, glm::vec3& outHitPoint, glm::vec3& outHitNormal, float& outDistance) const {
-	float t = -ray.pos.y / ray.direction.y;
+bool YPlane::Intersect(const Ray& ray, HitInfo& hitInfo) const {
+	float t = -(ray.pos.y - yPos) / ray.direction.y;
 	if (t < 1e-3)
 		return false;
 
-	outDistance = t;
-	outHitPoint = ray.pos + t * ray.direction;
-	outHitNormal = { 0.0f, 1.0f, 0.0f };
-	outObj = (Object*)this;
+	hitInfo.distance = t;
+	hitInfo.point = ray.pos + t * ray.direction;
+	hitInfo.normal = { 0.0f, 1.0f, 0.0f };
+	hitInfo.object = (Object*)this;
 	return true;
 }
 
@@ -86,7 +94,7 @@ BVH_Node::BVH_Node(const std::vector<Object*>& scrObjects, int start, int end) {
 
 	auto objects = scrObjects; // Create a modifiable array of the source scene objects
 
-	int axis = Random01() * 3;
+	int axis = (int)(Random01() * 3);
 	auto comparator = (axis == 0) ? box_x_compare
 					: (axis == 1) ? box_y_compare
 								  : box_z_compare;
@@ -130,26 +138,15 @@ BVH_Node::~BVH_Node() {
 }
 
 
-bool BVH_Node::Intersect(const Ray& ray, Object*& outObj, glm::vec3& outHitPoint, glm::vec3& outHitNormal, float& outDistance) const {
-	
+bool BVH_Node::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 	if (!boundingBox.DoesRayHit(ray))
 		return false;
 	
-	bool hit_left = left->Intersect(ray, outObj, outHitPoint, outHitNormal, outDistance);
-
-	Object* outObj2;
-	glm::vec3 outHitPoint2;
-	glm::vec3 outHitNormal2;
-	float outDistance2 = std::numeric_limits<float>::max();
-
-	bool hit_right = right->Intersect(ray, outObj2, outHitPoint2, outHitNormal2, outDistance2);
-
-	if (hit_right && (!hit_left || (hit_left && outDistance2 < outDistance)) ) {
-		outObj = outObj2;
-		outHitPoint = outHitPoint2;
-		outHitNormal = outHitNormal2;
-		outDistance = outDistance2;
-	}
+	bool hit_left = left->Intersect(ray, hitInfo);
+	HitInfo info2;
+	bool hit_right = right->Intersect(ray, info2);
+	if (hit_right && (!hit_left || (hit_left && info2.distance < hitInfo.distance)) )
+		hitInfo = info2;
 
 	return hit_left || hit_right;
 }

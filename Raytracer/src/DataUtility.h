@@ -2,7 +2,8 @@
 
 #include <glm.hpp>
 #include <string>
-
+#include <memory>
+#include <iostream>
 
 #include <cstdlib>
 static float Random01() { return ((float)rand() / (float)RAND_MAX); }
@@ -26,17 +27,53 @@ struct Ray {
 	glm::vec3 direction{ 0 };
 };
 
+struct Object;
+struct HitInfo {
+	glm::vec3 point;
+	glm::vec3 normal;
+	Object* object = nullptr;
+	float distance = std::numeric_limits<float>::max();
+	glm::vec2 uv;
+};
+
+struct ColorTexture;
+struct CheckeredTexture;
+struct Texture {
+	virtual glm::vec3 GetColorValue(const glm::vec2& uv, const glm::vec3& p) const = 0;
+
+	static std::shared_ptr<ColorTexture> CreateColored(const glm::vec3& col) { return std::make_shared<ColorTexture>(col); }
+	static std::shared_ptr<CheckeredTexture> CreateCheckered(const glm::vec3& col1, const glm::vec3& col2) { return std::make_shared<CheckeredTexture>(col1, col2); }
+	
+};
+struct ColorTexture : public Texture {
+	ColorTexture() = default;
+	ColorTexture(const glm::vec3 color) : color(color) {}
+
+	glm::vec3 GetColorValue(const glm::vec2& uv, const glm::vec3& p) const { return color; }
+
+	glm::vec3 color{ 0 };
+};
+struct CheckeredTexture : public Texture {
+	CheckeredTexture() = default;
+	CheckeredTexture(const glm::vec3 color1, const glm::vec3 color2) : color1(color1), color2(color2) {}
+
+	glm::vec3 GetColorValue(const glm::vec2& uv, const glm::vec3& p) const override;
+
+	glm::vec3 color1 { 0.0f };
+	glm::vec3 color2 { 1.0f };
+};
+
 enum class MaterialType {
 	None, Diffuse, Metal
 };
 struct Material {
 	Material() = default;
-	static Material CreateDiffuse(glm::vec3 color) { return Material{ MaterialType::Diffuse, 0.0f, color }; }
-	static Material CreateMetal(glm::vec3 color, float reflectiveness) { return Material{ MaterialType::Metal, reflectiveness, color }; }
+	static Material CreateDiffuse(std::shared_ptr<Texture> tex) { return Material{ MaterialType::Diffuse, 0.0f, tex }; };
+	static Material CreateMetal(float reflectiveness, std::shared_ptr<Texture> tex) { return Material{ MaterialType::Metal, reflectiveness, tex }; };
 
 	MaterialType materialType = MaterialType::None;
 	float reflectiveness = 0.0f;
-	glm::vec3 color = { 1, 1, 1 };
+	std::shared_ptr<Texture> texture;
 };
 
 // Axis aligned boundeing box
