@@ -18,9 +18,7 @@ bool Sphere::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 	hitInfo.normal = glm::normalize(hitInfo.point - pos);
 	hitInfo.object = (Object*)this;
 
-	float theta = acos(-hitInfo.normal.y);
-	float phi = atan2(-hitInfo.normal.z, hitInfo.normal.x) + glm::pi<float>();
-	hitInfo.uv = glm::vec2(phi / (2 * glm::pi<float>()), theta / glm::pi<float>());
+	hitInfo.uv = glm::vec2(glm::atan(hitInfo.normal.x, hitInfo.normal.z) / (2*glm::pi<float>()) + 0.5f, hitInfo.normal.y * -0.5f + 0.5f);
 
 	return true;
 }
@@ -131,6 +129,11 @@ BVH_Node::BVH_Node(const std::vector<Object*>& scrObjects, int start, int end) {
 }
 
 BVH_Node::~BVH_Node() {
+	if (left == right) {
+		delete left;
+		return;
+	}
+
 	if (left != nullptr)
 		delete left;
 	if (right != nullptr)

@@ -12,6 +12,7 @@ enum class ThreadState {
 class FrameManager {
 public:
 	void StartNewFrame();
+	void TerminateAllThreads();
 
 	bool NeedUpdatingTexture();
 	void FinishFrame();
@@ -20,7 +21,7 @@ public:
 	void* GetTexturePixelsToPresent();
 	void ContinueWorkingOnImage();
 
-	World& GetWorld() { return world; }
+	World& GetWorld() {	return world; } 
 private:
 	World world;
 	std::chrono::system_clock::time_point frameStartTime; // Benchmarking

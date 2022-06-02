@@ -52,6 +52,7 @@ int main()
 
     RayTracer* app = new RayTracer();
     app->Loop();
+    delete app;
 
     return 0;
 }

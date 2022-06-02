@@ -5,10 +5,7 @@
 #include <cstring>
 
 void FrameManager::StartNewFrame() {
-	// Wait for all the threads to stop calculating
-	threadState = ThreadState::Quit;
-	while (runningThreadAmount != 0)
-		std::this_thread::sleep_for(std::chrono::microseconds(5));
+	TerminateAllThreads();
 
 	memset(&texturePixels, 0, texturePixels.size());
 	threadState = ThreadState::Work;
@@ -27,6 +24,14 @@ void FrameManager::StartNewFrame() {
 #if LOG_BENCHMARK
 	frameStartTime = std::chrono::system_clock::now();
 #endif
+}
+void FrameManager::TerminateAllThreads() {
+	threadState = ThreadState::Quit;
+	while (runningThreadAmount != 0)
+		std::this_thread::sleep_for(std::chrono::microseconds(5));
+	for (int i = 0; i < threads.size(); i++)
+		threads[i].join();
+	threads.clear();
 }
 
 bool FrameManager::NeedUpdatingTexture() {

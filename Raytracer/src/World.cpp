@@ -14,14 +14,15 @@
 
 std::vector<Object*> CreateNoBoundingBoxObjects() {
 	std::vector<Object*> objs = std::vector<Object*>();
-	objs.push_back(new YPlane(0, Material::CreateDiffuse(Texture::CreateCheckered({1.0f, 1.0f, 1.0f}, {0.2f, 0.6f, 0.3f}))));
+	objs.push_back(new YPlane(0, Material::CreateMetal(0.3f, Texture::CreateCheckered({1.0f, 1.0f, 1.0f}, {0.2f, 0.6f, 0.3f}))));
 	return objs;
 }
 BVH_Node CreateBoundingBoxObjects() {
 	std::vector<Object*> objects = std::vector<Object*>();
-	objects.push_back(new Sphere{ { 8, 2, -4}, 2, Material::CreateDiffuse(Texture::CreateColored({ 1.0f, 1.0f, 1.0f}))});
-	for (int i = 0; i < 30; i++)
-		objects.push_back(new Sphere{ glm::vec3{i * 2.5f, glm::sin(i * 78.0f) * 1.9f + 1.0f, 15.0f * glm::sin(i * 34.4f)}, glm::sin(i * 78.0f) * 1.9f + 1.0f, Material::CreateDiffuse(Texture::CreateColored({ glm::sin(i), glm::sin(i * 1.7f), glm::sin(i * 3.3f) }))});
+	objects.push_back(new Sphere{ {8, 2, -4}, 2, Material::CreateDiffuse(Texture::CreateCheckered({ 0.6f, 0.3f, 0.2f }, { 1.0f, 1.0f, 1.0f})) });
+	objects.push_back(new Sphere{ {2, 2, -4}, 2, Material::CreateDiffuse(Texture::CreateFromImage("src/stb_image/Earth.png")) });
+	for (int i = 0; i < 20; i++)
+		objects.push_back(new Sphere{ glm::vec3{i * 2.5f+10, glm::sin(i * 78.0f) * 1.9f + 1.0f, 15.0f * glm::sin(i * 34.4f)}, glm::sin(i * 78.0f) * 1.9f + 1.0f, Material::CreateDiffuse(Texture::CreateColored({ glm::sin(i), glm::sin(i * 1.7f), glm::sin(i * 3.3f) }))});
 
 	// This object now owns the pointers, and is responsible for deleting them
 	return BVH_Node(objects);
@@ -91,8 +92,10 @@ glm::vec3 World::GetRayColor(const Ray& ray, int bounceAmount) {
 		}
 	}
 
-	if (hitInfo.object == nullptr)
-		return GetSkyboxPixel(ray.direction);
+	if (hitInfo.object == nullptr) {
+		glm::vec3 col = GetSkyboxPixel(ray.direction);
+		return col;
+	}
 
 	const Material& material = hitInfo.object->material;
 	switch (material.materialType)
@@ -112,17 +115,16 @@ glm::vec3 World::GetRayColor(const Ray& ray, int bounceAmount) {
 			return pixelColor;
 		}
 		case MaterialType::Metal: {
-			float shadowMultiplier = 1.0f - (1.0f - glm::clamp(glm::dot(hitInfo.normal, lightVector) + 1.0f, 0.0f, 1.0f)) * SELF_SHADOW_INTENSITY;
 			if (bounceAmount == 0 || material.reflectiveness == 0)
-				return material.texture->GetColorValue(hitInfo.uv, hitInfo.point) * shadowMultiplier;
+				return material.texture->GetColorValue(hitInfo.uv, hitInfo.point);
 
 			Ray reflectedRay;
 			reflectedRay.pos = hitInfo.point;
 			reflectedRay.direction = ray.direction - 2.0f * hitInfo.normal * glm::dot(ray.direction, hitInfo.normal);
 
-			glm::vec3 pixelColor = (1.0f - material.reflectiveness) * material.texture->GetColorValue(hitInfo.uv, hitInfo.point);
+			glm::vec3 pixelColor = (1.0f - material.reflectiveness) * material.texture->GetColorValue(hitInfo.uv, hitInfo.point)
 				+ material.reflectiveness * GetRayColor(reflectedRay, bounceAmount - 1);
-			return pixelColor * shadowMultiplier;
+			return pixelColor;
 		}
 		default:
 			return glm::vec3{ 0 };
@@ -130,10 +132,15 @@ glm::vec3 World::GetRayColor(const Ray& ray, int bounceAmount) {
 }
 
 glm::vec3 World::GetSkyboxPixel(const glm::vec3& direction) {
-	glm::vec2 pixel = glm::vec2{ (0.5f + glm::atan(direction.x, direction.z) / (glm::two_pi<float>())) * skybox.size.x, (0.5f - glm::asin(direction.y) / glm::pi<float>()) * skybox.size.y };
+	glm::vec2 uv = glm::vec2(glm::atan(direction.x, direction.z) / (2*glm::pi<float>()) + 0.5f, direction.y * -0.5f + 0.5f);
+	glm::vec2 pixel = { uv.x * skybox.size.x, uv.y * skybox.size.y };
+
 	int intPixelX = (int)glm::floor(pixel.x);
 	int intPixelY = (int)glm::floor(pixel.y);
 
+	return GetSkyboxPixel(intPixelX, intPixelY);
+
+	/*
 	float Xfraction = (intPixelX + 0.5f - pixel.x);
 	float Yfraction = (intPixelY + 0.5f - pixel.y);
 	float absX = glm::abs(Xfraction);
@@ -149,12 +156,13 @@ glm::vec3 World::GetSkyboxPixel(const glm::vec3& direction) {
 	otherX = otherX < 0 ? otherX + skybox.size.x : otherX % skybox.size.x;
 	otherY = otherY < 0 ? otherY + skybox.size.x : otherY % skybox.size.y;
 
-	glm::vec3 col = GetSkyboxPixel((int)pixel.x, (int)pixel.y) * originalMultiplier;
-	col += GetSkyboxPixel(otherX, (int)pixel.y) * otherXMultiplier;
-	col += GetSkyboxPixel((int)pixel.x, otherY) * otherYMultiplier;
+	glm::vec3 col = GetSkyboxPixel(intPixelX, intPixelY) * originalMultiplier;
+	col += GetSkyboxPixel(otherX, intPixelY) * otherXMultiplier;
+	col += GetSkyboxPixel(intPixelX, otherY) * otherYMultiplier;
 	col += GetSkyboxPixel(otherX, otherY) * otherXYMultiplier;
 
 	return col;
+	//*/
 }
 glm::vec3 World::GetSkyboxPixel(int x, int y) {
 	int index = 3 * (int)(y * skybox.size.x + x);
@@ -162,5 +170,9 @@ glm::vec3 World::GetSkyboxPixel(int x, int y) {
 	uint8_t c2 = skybox.skyboxImageData[index + 1];
 	uint8_t c3 = skybox.skyboxImageData[index + 2];
 
-	return glm::vec3{ (float)*(uint8_t*)&skybox.skyboxImageData[index], (float)*(uint8_t*)&skybox.skyboxImageData[index + 1], (float)*(uint8_t*)&skybox.skyboxImageData[index + 2] } / 255.0f;
+	float f1 = c1;
+	float f2 = c2;
+	float f3 = c3;
+
+	return glm::vec3{ f1, f2, f3 } / 255.0f;
 }

@@ -54,6 +54,8 @@ void RayTracer::Loop() {
 
 		SleepForSteadyFPS();
 	}
+
+	frameManager.TerminateAllThreads();
 }
 
 void RayTracer::PresentRender() {

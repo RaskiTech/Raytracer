@@ -38,12 +38,24 @@ struct HitInfo {
 
 struct ColorTexture;
 struct CheckeredTexture;
+struct ImageTexture;
 struct Texture {
+	virtual ~Texture() {}
 	virtual glm::vec3 GetColorValue(const glm::vec2& uv, const glm::vec3& p) const = 0;
 
 	static std::shared_ptr<ColorTexture> CreateColored(const glm::vec3& col) { return std::make_shared<ColorTexture>(col); }
 	static std::shared_ptr<CheckeredTexture> CreateCheckered(const glm::vec3& col1, const glm::vec3& col2) { return std::make_shared<CheckeredTexture>(col1, col2); }
+	static std::shared_ptr<ImageTexture> CreateFromImage(const std::string& imagePath) { return std::make_shared<ImageTexture>(imagePath); }
 	
+};
+struct ImageTexture : public Texture {
+	ImageTexture(const std::string& path);
+	~ImageTexture();
+
+	glm::vec3 GetColorValue(const glm::vec2& uv, const glm::vec3& p) const;
+
+	glm::uvec2 size;
+	char* imageData;
 };
 struct ColorTexture : public Texture {
 	ColorTexture() = default;
