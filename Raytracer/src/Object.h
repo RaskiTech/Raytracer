@@ -26,13 +26,14 @@ struct Sphere : public Object {
 };
 
 struct AxisAlignedCube : public Object {
-	AxisAlignedCube(glm::vec3 pos, float radius, Material mat) : Object(mat), pos(pos), radius(radius) {}
+	AxisAlignedCube(glm::vec3 pos, float radius, Material mat) : Object(mat), minCoord(pos - radius), maxCoord(pos + radius) {}
+	AxisAlignedCube(glm::vec3 minPos, glm::vec3 maxPos, Material mat) : Object(mat), minCoord(minPos), maxCoord(maxPos) {}
 
 	bool Intersect(const Ray& ray, HitInfo& hitInfo) const override;
 	bool GetBoundingBox(BoundingBox& outBox) const override;
 
-	glm::vec3 pos{ 0 };
-	float radius = 0;
+	glm::vec3 minCoord;
+	glm::vec3 maxCoord;
 };
 
 struct YPlane : public Object {

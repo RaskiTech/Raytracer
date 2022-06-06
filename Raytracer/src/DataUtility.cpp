@@ -15,6 +15,8 @@ void Camera::SetForwardVector(const glm::vec3& lookVector) {
 }
 
 Skybox::Skybox(const std::string& filepath) {
+	stbi_set_flip_vertically_on_load(true);
+
 	int x, y, channels;
 	skyboxImageData = (char*)stbi_load(filepath.c_str(), &x, &y, &channels, 3);
 	size.x = x;
@@ -54,11 +56,8 @@ bool BoundingBox::DoesRayHit(const Ray& r) const {
 	if ((tmin > tymax) || (tymin > tmax))
 		return false;
 
-	if (tymin > tmin)
-		tmin = tymin;
-
-	if (tymax < tmax)
-		tmax = tymax;
+	tmin = glm::max(tmin, tymin);
+	tmax = glm::min(tmax, tymax);
 
 	if (r.direction.z >= 0) {
 		tzmin = (minCoord.z - r.pos.z) / r.direction.z;
@@ -72,13 +71,10 @@ bool BoundingBox::DoesRayHit(const Ray& r) const {
 	if ((tmin > tzmax) || (tzmin > tmax))
 		return false;
 
-	if (tzmin > tmin)
-		tmin = tzmin;
+	tmin = glm::max(tmin, tzmin);
+	tmax = glm::min(tmax, tzmax);
 
-	if (tzmax < tmax)
-		tmax = tzmax;
-
-	// Filter out collision behind the box
+	// Filter out collisions where the whole object is behind
 	if (tmin < 0.0f && tmax < 0.0f)
 		return false;
 
@@ -100,6 +96,8 @@ glm::vec3 CheckeredTexture::GetColorValue(const glm::vec2& uv, const glm::vec3& 
 }
 
 ImageTexture::ImageTexture(const std::string& path) {
+	stbi_set_flip_vertically_on_load(true);
+
 	int x, y, channels;
 	imageData = (char*)stbi_load(path.c_str(), &x, &y, &channels, STBI_rgb);
 	size.x = x;

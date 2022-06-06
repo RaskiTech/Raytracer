@@ -18,7 +18,7 @@ bool Sphere::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 	hitInfo.normal = glm::normalize(hitInfo.point - pos);
 	hitInfo.object = (Object*)this;
 
-	hitInfo.uv = glm::vec2(glm::atan(hitInfo.normal.x, hitInfo.normal.z) / (2*glm::pi<float>()) + 0.5f, hitInfo.normal.y * -0.5f + 0.5f);
+	hitInfo.uv = glm::vec2(glm::atan(hitInfo.normal.x, hitInfo.normal.z) / (2*glm::pi<float>()) + 0.5f, hitInfo.normal.y * 0.5f + 0.5f);
 
 	return true;
 }
@@ -30,14 +30,89 @@ bool Sphere::GetBoundingBox(BoundingBox& outBox) const {
 	return true;
 }
 bool AxisAlignedCube::Intersect(const Ray& ray, HitInfo& hitInfo) const {
-	std::cerr << "TODO: Alix aligned cube intersect function." << std::endl;
-	return false;
+	float tmin, tmax, tymin, tymax, tzmin, tzmax;
+	glm::vec3 axisNormalCandidate;
+
+	if (ray.direction.x >= 0) {
+		tmin = (minCoord.x - ray.pos.x) / ray.direction.x;
+		tmax = (maxCoord.x - ray.pos.x) / ray.direction.x;
+
+		hitInfo.normal = { -1, 0, 0 };
+	}
+	else {
+		tmin = (maxCoord.x - ray.pos.x) / ray.direction.x;
+		tmax = (minCoord.x - ray.pos.x) / ray.direction.x;
+
+		hitInfo.normal = { 1, 0, 0 };
+	}
+
+	glm::vec3 yNormalCandidate;
+	if (ray.direction.y >= 0) {
+		tymin = (minCoord.y - ray.pos.y) / ray.direction.y;
+		tymax = (maxCoord.y - ray.pos.y) / ray.direction.y;
+
+		yNormalCandidate = { 0, -1, 0 };
+	}
+	else {
+		tymin = (maxCoord.y - ray.pos.y) / ray.direction.y;
+		tymax = (minCoord.y - ray.pos.y) / ray.direction.y;
+
+		yNormalCandidate = { 0, 1, 0 };
+	}
+
+	if ((tmin > tymax) || (tymin > tmax))
+		return false;
+
+	if (tymin > tmin) {
+		tmin = tymin;
+		hitInfo.normal = yNormalCandidate;
+	}
+
+	if (tymax < tmax)
+		tmax = tymax;
+
+	glm::vec3 zNormalCandidate;
+	if (ray.direction.z >= 0) {
+		tzmin = (minCoord.z - ray.pos.z) / ray.direction.z;
+		tzmax = (maxCoord.z - ray.pos.z) / ray.direction.z;
+
+		zNormalCandidate = { 0, 0, -1 };
+	}
+	else {
+		tzmin = (maxCoord.z - ray.pos.z) / ray.direction.z;
+		tzmax = (minCoord.z - ray.pos.z) / ray.direction.z;
+
+		zNormalCandidate = { 0, 0, 1 };
+	}
+
+	if ((tmin > tzmax) || (tzmin > tmax))
+		return false;
+
+	if (tzmin > tmin) {
+		tmin = tzmin;
+		hitInfo.normal = zNormalCandidate;
+	}
+
+	if (tzmax < tmax)
+		tmax = tzmax;
+
+	// Filter out collisions where the min behind player.
+	if (tmin < 0.0f)
+		return false;
+
+	hitInfo.distance = tmin;
+	hitInfo.object = (Object*)this;
+	hitInfo.point = ray.pos + ray.direction * tmin;
+	hitInfo.point += hitInfo.normal * 0.02f;
+	//hitInfo.uv = (hitInfo.point - minCoord) / (maxCoord - minCoord);
+	hitInfo.uv = { hitInfo.normal.x == 0 ? 0 : 1 , hitInfo.normal.z == 0 ? 0 : 1};
+	//if (hitInfo.uv.x == 1 && hitInfo.uv.y == 0)
+	//	std::cout << hitInfo.normal.x << " " << hitInfo.normal.z;
+
+	return true;
 }
 bool AxisAlignedCube::GetBoundingBox(BoundingBox& outBox) const {
-	outBox = BoundingBox(
-		pos - glm::vec3(radius, radius, radius),
-		pos + glm::vec3(radius, radius, radius)
-	);
+	outBox = BoundingBox(minCoord, maxCoord);
 	return true;
 }
 

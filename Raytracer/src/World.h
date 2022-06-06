@@ -28,5 +28,4 @@ private:
 
 	Skybox skybox;
 	Camera camera;
-	glm::vec3 lightVector = { 0.0f, 0.707f, -0.707f };
 };
