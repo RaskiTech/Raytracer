@@ -13,7 +13,7 @@
 #define DEPTH_OF_FIELD_INTENSITY 0.1f
 #define FOCUS_DISTANCE 10.0f
 #define LIGHT_BOUNCE_AMOUNT 3
-#define SAMPLES_PER_PIXEL_AXIS 3 /* This number squared, since it is looped for both axis */
+#define SAMPLES_PER_PIXEL_AXIS 4 /* This number squared, since it is looped for both axis */
 
 //  GAMEPLAY  //
 #define CAN_MOVE_CAMERA true

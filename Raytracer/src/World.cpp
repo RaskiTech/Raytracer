@@ -14,26 +14,42 @@
 
 std::vector<Object*> CreateNoBoundingBoxObjects() {
 	std::vector<Object*> objs = std::vector<Object*>();
-	objs.push_back(new YPlane(0, Material::CreateMetal(0.3f, Texture::CreateCheckered({1.0f, 1.0f, 1.0f}, {0.2f, 0.6f, 0.3f}))));
+	objs.push_back(new YPlane(0, Material::CreateDiffuse(Texture::CreateCheckered({1.0f, 1.0f, 1.0f}, {0.2f, 0.6f, 0.3f}))));
 	return objs;
 }
 BVH_Node CreateBoundingBoxObjects() {
 	std::vector<Object*> objects = std::vector<Object*>();
 
+#if 0
 	objects.push_back(new AxisAlignedCube{ {6, 2, -9}, 2, Material::CreateMetal(0.4f, Texture::CreateColored({ 0.2f, 0.2f, 0.2 }))});
 	objects.push_back(new Sphere{ {8, 2, -4}, 2, Material::CreateDiffuse(Texture::CreateCheckered({ 0.6f, 0.3f, 0.2f }, { 1.0f, 1.0f, 1.0f})) });
-	//*
+
 	for (int i = 0; i < 15; i++)
 		objects.push_back(new Sphere{ glm::vec3{i * 2.5f+10, glm::sin(i * 78.0f) * 1.9f + 1.0f, 15.0f * glm::sin(i * 34.4f)}, glm::sin(i * 78.0f) * 1.9f + 1.0f, Material::CreateDiffuse(Texture::CreateColored({ glm::sin(i), glm::sin(i * 1.7f), glm::sin(i * 3.3f) }))});
+#elif 0
+	objects.push_back(new AxisAlignedCube{ {-15, 0, 15}, { 31, 10, 16 }, Material::CreateDiffuse(Texture::CreateColored({ 0.7f, 0.3f, 0.2f })) });
+	objects.push_back(new AxisAlignedCube{ {30, 0, -15}, { 31, 10, 16 }, Material::CreateDiffuse(Texture::CreateColored({ 0.7f, 0.3f, 0.2f })) });
+	objects.push_back(new AxisAlignedCube{ {-15, 9, -15}, { 31, 10, 16 }, Material::CreateDiffuse(Texture::CreateColored({ 0.7f, 0.3f, 0.2f })) });
+	objects.push_back(new AxisAlignedCube{ {-16, 0, -16}, { 31, 10, -15 }, Material::CreateDiffuse(Texture::CreateColored({ 0.7f, 0.3f, 0.2f })) });
 
-	//*/
+	objects.push_back(new Sphere{ { 3, 3, -3 }, 2, Material::CreateDiffuseLight({ 4.0f, 4.0f, 4.0f }) });
+#else
+	objects.push_back(new AxisAlignedCube{ {-6, 0, -6}, {-5, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.8f, 0.2f, 0.3f })) });
+	objects.push_back(new AxisAlignedCube{ {5, 0, -6}, {6, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.2f, 0.8f, 0.3f })) });
+	objects.push_back(new AxisAlignedCube{ {-6, 0, 5}, {6, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.4f, 0.4f, 0.4f })) });
+	objects.push_back(new AxisAlignedCube{ {-6, 5, -6}, {6, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.4f, 0.4f, 0.4f })) });
+
+	objects.push_back(new Sphere{ {3, 1.5f, 3.5f}, 1.5f, Material::CreateDiffuseLight({5.0f, 5.0f, 5.0f}) });
+	objects.push_back(new AxisAlignedCube{ {-3, 1, -2}, 1.0f, Material::CreateDiffuseLight({5.0f, 5.0f, 5.0f}) });
+
+#endif
 
 	// This object now owns the pointers, and is responsible for deleting them
 	return BVH_Node(objects);
 }
 
 World::World()
-  : camera({ glm::vec3{ 1, 3, 4 }, glm::vec3{ 3, -0.5f, -3.0f } }), 
+  : camera({ glm::vec3{ 0, 3, -8 }, glm::vec3{ 0, 0, 1 } }), 
 	skybox(std::string("src/stb_image/skybox12.png")), 
 	rootNode(CreateBoundingBoxObjects()),
 	noBoundingBoxObjects(CreateNoBoundingBoxObjects())
@@ -45,9 +61,6 @@ World::~World() {
 }
 
 glm::u8vec3 World::CalculateColorForScreenPosition(int x, int y) {
-	if (x == 400 && y == 400)
-		int i = 0;
-
 	Ray ray;
 	glm::vec2 onePixelOffset = { -(1.0f / WINDOW_WIDTH) * ((float)WINDOW_WIDTH / WINDOW_HEIGHT) * FIELD_OF_VIEW, -(1.0f / WINDOW_HEIGHT) * FIELD_OF_VIEW };
 	glm::vec2 offset = { -((float)x / WINDOW_WIDTH - 0.5f) * ((float)WINDOW_WIDTH/WINDOW_HEIGHT) * FIELD_OF_VIEW, -((float)y / WINDOW_HEIGHT - 0.5f) * FIELD_OF_VIEW };
@@ -73,11 +86,15 @@ glm::u8vec3 World::CalculateColorForScreenPosition(int x, int y) {
 		}
 	}
 	color /= SAMPLES_PER_PIXEL_AXIS * SAMPLES_PER_PIXEL_AXIS;
+	color = glm::clamp(color, glm::vec3{ 0 }, glm::vec3{ 1 });
 
 	// Gamma color correct (for diffuse materials)
 	color = glm::sqrt(color);
 
 	glm::u8vec3 color8Bit = { (char)(color.r * 255), (char)(color.g * 255), (char)(color.b * 255) };
+	if (color8Bit.r == 159 && color8Bit.g == 19 && color8Bit.b == 194)
+		std::cout << x << " " << y << std::endl;
+
 	return color8Bit;
 }
 
@@ -97,7 +114,7 @@ glm::vec3 World::GetRayColor(const Ray& ray, int bounceAmount) {
 	}
 
 	if (hitInfo.object == nullptr) {
-		return GetSkyboxPixel(ray.direction);
+		return 0.5f * GetSkyboxPixel(ray.direction);
 	}
 
 	const Material& material = hitInfo.object->material;
@@ -110,7 +127,7 @@ glm::vec3 World::GetRayColor(const Ray& ray, int bounceAmount) {
 				return glm::vec3{ 0 };
 
 			Ray reflectedRay;
-			reflectedRay.direction = glm::normalize(hitInfo.normal + 2.0f * GetRandomUnitSpherePoint());
+			reflectedRay.direction = glm::normalize(hitInfo.normal + GetRandomUnitSpherePoint());
 			reflectedRay.pos = hitInfo.point;
 
 			glm::vec3 pixelColor = lightDarknerFactor * GetRayColor(reflectedRay, bounceAmount - 1) * material.texture->GetColorValue(hitInfo.uv, hitInfo.point);
@@ -119,17 +136,20 @@ glm::vec3 World::GetRayColor(const Ray& ray, int bounceAmount) {
 		}
 		case MaterialType::Metal: {
 			if (bounceAmount == 0 || material.reflectiveness == 0)
-				return material.texture->GetColorValue(hitInfo.uv, hitInfo.point);
+				return glm::vec3{ 0 };//return material.texture->GetColorValue(hitInfo.uv, hitInfo.point);
 
 			Ray reflectedRay;
 			reflectedRay.pos = hitInfo.point;
 			reflectedRay.direction = glm::normalize(ray.direction - 2.0f * hitInfo.normal * glm::dot(ray.direction, hitInfo.normal));
 
-			glm::vec3 pixelColor = (1.0f - material.reflectiveness) * material.texture->GetColorValue(hitInfo.uv, hitInfo.point)
-				+ material.reflectiveness * GetRayColor(reflectedRay, bounceAmount - 1);
+			glm::vec3 pixelColor = 2.0f * (1.0f - material.reflectiveness) * material.texture->GetColorValue(hitInfo.uv, hitInfo.point)
+				* material.reflectiveness * GetRayColor(reflectedRay, bounceAmount - 1);
 			return pixelColor;
 		}
-		default:
+		case MaterialType::DiffuseLight: {
+			return material.emittingColor;
+		}
+		case MaterialType::None:
 			return glm::vec3{ 0 };
 	}
 }

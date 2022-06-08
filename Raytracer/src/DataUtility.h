@@ -5,20 +5,37 @@
 #include <memory>
 #include <iostream>
 
+#if 1
 #include <cstdlib>
-static float Random01() { return ((float)rand() / (float)RAND_MAX); }
+static float Random01() { return (float)std::rand() / RAND_MAX; }
+static float RandomUnitDistance() { return ((float)(std::rand() - RAND_MAX / 2) / (RAND_MAX / 2)); }
+#else
+#include <random>
+#include <chrono>
+static float Random01() {
+	static std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
+	static std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
+	return distribution(rng);
+}
+static float RandomUnitDistance() {
+	static std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
+	static std::uniform_real_distribution<float> distribution(-1.0f, 1.0f);
+	return distribution(rng);
+}
+#endif
+
 static glm::vec3 GetRandomUnitSpherePoint() {
 	while (true) {
-		glm::vec3 sample = { Random01(), Random01(), Random01() };
-		if (sample.x + sample.y + sample.z < 1.0f)
-			return sample - 0.5f;
+		glm::vec3 sample = glm::vec3{ RandomUnitDistance(), RandomUnitDistance(), RandomUnitDistance() };
+		if (sample.x * sample.x + sample.y * sample.y + sample.z * sample.z < 1.0f)
+			return sample;
 	}
 }
 static glm::vec2 GetRandomUnitCirclePoint() {
 	while (true) {
-		glm::vec2 sample = { Random01(), Random01() };
-		if (sample.x + sample.y < 1.0f)
-			return sample - 0.5f;
+		glm::vec2 sample = { RandomUnitDistance(), RandomUnitDistance() };
+		if (sample.x * sample.x + sample.y * sample.y < 1.0f)
+			return sample;
 	}
 }
 
@@ -82,16 +99,18 @@ struct UVTexture : public Texture {
 };
 
 enum class MaterialType {
-	None, Diffuse, Metal
+	None, Diffuse, Metal, DiffuseLight
 };
 struct Material {
 	Material() = default;
-	static Material CreateDiffuse(std::shared_ptr<Texture> tex) { return Material{ MaterialType::Diffuse, 0.0f, tex }; };
-	static Material CreateMetal(float reflectiveness, std::shared_ptr<Texture> tex) { return Material{ MaterialType::Metal, reflectiveness, tex }; };
+	static Material CreateDiffuse(std::shared_ptr<Texture> tex) { return Material{ MaterialType::Diffuse, 0.0f, tex }; }
+	static Material CreateMetal(float reflectiveness, std::shared_ptr<Texture> tex) { return Material{ MaterialType::Metal, reflectiveness, tex }; }
+	static Material CreateDiffuseLight(glm::vec3 emittingColor) { return Material{ MaterialType::DiffuseLight, 0.0f, nullptr, emittingColor }; }
 
 	MaterialType materialType = MaterialType::None;
 	float reflectiveness = 0.0f;
 	std::shared_ptr<Texture> texture;
+	glm::vec3 emittingColor = glm::vec3{ 0 }; // Could also be a texture at some point
 };
 
 // Axis aligned boundeing box
