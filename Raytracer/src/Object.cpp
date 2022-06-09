@@ -159,6 +159,7 @@ bool box_y_compare(const Object* a, const Object* b) { return CompareObjectAxis(
 bool box_z_compare(const Object* a, const Object* b) { return CompareObjectAxis(a, b, 2); }
 
 BVH_Node::BVH_Node(const std::vector<Object*>& scrObjects, int start, int end) {
+
 	/*
 	1. randomly choose an axis
 	2. sort the primitives (using std::sort)
@@ -204,6 +205,7 @@ BVH_Node::BVH_Node(const std::vector<Object*>& scrObjects, int start, int end) {
 }
 
 BVH_Node::~BVH_Node() {
+
 	if (left == right) {
 		delete left;
 		return;
@@ -228,4 +230,71 @@ bool BVH_Node::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 
 	return hit_left || hit_right;
 }
- 
+
+ApplyYRotation::ApplyYRotation(float degress, Object* target) : target(target), angle(glm::radians(degress)) {
+	sinTheta = glm::sin(angle);
+	cosTheta = glm::cos(angle);
+	boxExists = target->GetBoundingBox(box);
+	pivot = box.CalculatePivot();
+	box.minCoord -= pivot;
+	box.maxCoord -= pivot;
+
+	glm::vec3 min = glm::vec3{ std::numeric_limits<float>::max() };
+	glm::vec3 max = glm::vec3{ std::numeric_limits<float>::min() };
+
+	for (int i = 0; i < 2; i++) {
+		for (int j = 0; j < 2; j++) {
+			for (int k = 0; k < 2; k++) {
+				float x = i * box.maxCoord.x + (1 - i) * box.minCoord.x;
+				float y = j * box.maxCoord.y + (1 - j) * box.minCoord.y;
+				float z = k * box.maxCoord.z + (1 - k) * box.minCoord.z;
+
+				float newx = cosTheta * x + sinTheta * z;
+				float newz = -sinTheta * x + cosTheta * z;
+
+				glm::vec3 tester(newx, y, newz);
+				for (int c = 0; c < 3; c++) {
+					min[c] = fmin(min[c], tester[c]);
+					max[c] = fmax(max[c], tester[c]);
+				}
+			}
+		}
+	}
+
+	box = BoundingBox(min, max);
+	box.minCoord += pivot;
+	box.maxCoord += pivot;
+}
+
+bool ApplyYRotation::Intersect(const Ray& ray, HitInfo& hitInfo) const {
+	glm::vec3 originOriginal = ray.pos - pivot;
+	glm::vec3 originModified = originOriginal;
+	glm::vec3 direction = ray.direction;
+
+    originModified.x = cosTheta*originOriginal.x - sinTheta*originOriginal.z;
+    originModified.z = sinTheta*originOriginal.x + cosTheta*originOriginal.z;
+
+    direction.x = cosTheta*ray.direction.x - sinTheta*ray.direction.z;
+    direction.z = sinTheta*ray.direction.x + cosTheta*ray.direction.z;
+
+    Ray rotated(originModified + pivot, direction);
+
+    if (!target->Intersect(rotated, hitInfo))
+        return false;
+
+	// Transform the data back
+	originOriginal = hitInfo.point - pivot;
+	originModified = originOriginal;
+    glm::vec3 normal = hitInfo.normal;
+
+    originModified.x =  cosTheta*originOriginal.x + sinTheta*originOriginal.z;
+    originModified.z = -sinTheta*originOriginal.x + cosTheta*originOriginal.z;
+
+    normal.x =  cosTheta*hitInfo.normal.x + sinTheta*hitInfo.normal.z;
+    normal.z = -sinTheta*hitInfo.normal.x + cosTheta*hitInfo.normal.z;
+
+    hitInfo.point = originModified + pivot;
+	hitInfo.normal = normal;
+
+    return true;
+}

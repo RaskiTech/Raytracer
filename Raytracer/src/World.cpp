@@ -12,52 +12,56 @@
 ///////// Scene objects //////////
 //////////////////////////////////
 
-std::vector<Object*> CreateNoBoundingBoxObjects() {
+std::vector<Object*> CreateNoBoundingBoxObjects(float time) {
 	std::vector<Object*> objs = std::vector<Object*>();
 	objs.push_back(new YPlane(0, Material::CreateMetal(Texture::CreateCheckered({1.0f, 1.0f, 1.0f}, {0.2f, 0.6f, 0.3f}))));
 	return objs;
 }
-BVH_Node CreateBoundingBoxObjects() {
+BVH_Node* CreateBoundingBoxObjects(float time) {
 	std::vector<Object*> objects = std::vector<Object*>();
 
 #if 0
-	objects.push_back(new AxisAlignedCube{ {6, 2, -9}, 2, Material::CreateMetal(0.4f, Texture::CreateColored({ 0.2f, 0.2f, 0.2 }))});
+	objects.push_back(new AxisAlignedCube{ {6, 2, -9}, 2, Material::CreateMetal(Texture::CreateColored({ 0.4f, 0.4f, 0.4 }))});
 	objects.push_back(new Sphere{ {8, 2, -4}, 2, Material::CreateDiffuse(Texture::CreateCheckered({ 0.6f, 0.3f, 0.2f }, { 1.0f, 1.0f, 1.0f})) });
 
 	for (int i = 0; i < 15; i++)
-		objects.push_back(new Sphere{ glm::vec3{i * 2.5f+10, glm::sin(i * 78.0f) * 1.9f + 1.0f, 15.0f * glm::sin(i * 34.4f)}, glm::sin(i * 78.0f) * 1.9f + 1.0f, Material::CreateDiffuse(Texture::CreateColored({ glm::sin(i), glm::sin(i * 1.7f), glm::sin(i * 3.3f) }))});
-#elif 0
-	objects.push_back(new AxisAlignedCube{ {-15, 0, 15}, { 31, 10, 16 }, Material::CreateDiffuse(Texture::CreateColored({ 0.7f, 0.3f, 0.2f })) });
-	objects.push_back(new AxisAlignedCube{ {30, 0, -15}, { 31, 10, 16 }, Material::CreateDiffuse(Texture::CreateColored({ 0.7f, 0.3f, 0.2f })) });
-	objects.push_back(new AxisAlignedCube{ {-15, 9, -15}, { 31, 10, 16 }, Material::CreateDiffuse(Texture::CreateColored({ 0.7f, 0.3f, 0.2f })) });
-	objects.push_back(new AxisAlignedCube{ {-16, 0, -16}, { 31, 10, -15 }, Material::CreateDiffuse(Texture::CreateColored({ 0.7f, 0.3f, 0.2f })) });
-
-	objects.push_back(new Sphere{ { 3, 3, -3 }, 2, Material::CreateDiffuseLight({ 4.0f, 4.0f, 4.0f }) });
+		objects.push_back(new Sphere{ 
+			glm::vec3{i * 2.5f+10, glm::sin(i * 78.0f) * 1.9f + 1.0f, 15.0f * glm::sin(i * 34.4f)}, 
+			glm::sin(i * 78.0f) * 1.9f + 1.0f, 
+			Material::CreateDiffuse(Texture::CreateColored((1.0f + glm::vec3{ glm::sin(i), glm::sin(i * 1.7f), glm::sin(i) }) / 0.5f))});
 #else
 	objects.push_back(new AxisAlignedCube{ {-6, 0, -6}, {-5, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.8f, 0.2f, 0.3f })) });
 	objects.push_back(new AxisAlignedCube{ {5, 0, -6}, {6, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.2f, 0.8f, 0.3f })) });
 	objects.push_back(new AxisAlignedCube{ {-6, 0, 5}, {6, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.4f, 0.4f, 0.4f })) });
 	objects.push_back(new AxisAlignedCube{ {-6, 5, -6}, {6, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.4f, 0.4f, 0.4f })) });
 
-	objects.push_back(new Sphere{ {3, 1.5f, 3.5f}, 1.5f, Material::CreateDiffuseLight({5.0f, 2.0f, 2.0f}) });
-	objects.push_back(new AxisAlignedCube{ {-3, 1, -2}, 1.0f, Material::CreateDiffuseLight({2.0f, 2.0f, 10.0f}) });
-
+	objects.push_back(new Sphere{ {3 * sin(time * 0.1f), 1.5f, 3.5f}, 1.5f, Material::CreateDiffuseLight({5.0f, 2.0f, 2.0f})});
+	objects.push_back(new ApplyYRotation(time, new AxisAlignedCube{{-3, 1, -2}, 1.0f, Material::CreateDiffuse(Texture::CreateColored({1.0f, 1.0f, 1.0f}))}));
 #endif
 
 	// This object now owns the pointers, and is responsible for deleting them
-	return BVH_Node(objects);
+	return new BVH_Node(objects);
 }
 
-World::World()
+World::World(float time)
   : camera({ glm::vec3{ 0, 3, -8 }, glm::vec3{ 0, 0, 1 } }), 
 	skybox(std::string("src/stb_image/skybox12.png")), 
-	rootNode(CreateBoundingBoxObjects()),
-	noBoundingBoxObjects(CreateNoBoundingBoxObjects())
+	rootNode(CreateBoundingBoxObjects(time)),
+	noBoundingBoxObjects(CreateNoBoundingBoxObjects(time))
 {}
 
 World::~World() {
 	for (Object* obj : noBoundingBoxObjects)
 		delete obj;
+}
+
+void World::CreateWithNewTime(float time) {
+	for (Object* obj : noBoundingBoxObjects)
+		delete obj;
+	delete rootNode;
+
+	rootNode = CreateBoundingBoxObjects(time);
+	noBoundingBoxObjects = CreateNoBoundingBoxObjects(time);
 }
 
 glm::u8vec3 World::CalculateColorForScreenPosition(int x, int y) {
@@ -97,7 +101,7 @@ glm::u8vec3 World::CalculateColorForScreenPosition(int x, int y) {
 
 glm::vec3 World::GetRayColor(const Ray& ray, int bounceAmount) {
 	HitInfo hitInfo;
-	rootNode.Intersect(ray, hitInfo);
+	rootNode->Intersect(ray, hitInfo);
 	{
 		HitInfo thisHitInfo;
 

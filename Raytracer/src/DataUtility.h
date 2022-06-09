@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm.hpp>
+#include <gtx/compatibility.hpp>
 #include <string>
 #include <memory>
 #include <iostream>
@@ -40,6 +41,9 @@ static glm::vec2 GetRandomUnitCirclePoint() {
 }
 
 struct Ray {
+	Ray() = default;
+	Ray(glm::vec3 pos, glm::vec3 direction) : pos(pos), direction(direction) {}
+
 	glm::vec3 pos{ 0 };
 	glm::vec3 direction{ 0 };
 };
@@ -117,6 +121,7 @@ struct BoundingBox {
 	BoundingBox() = default;
 	BoundingBox(glm::vec3 minCoord, glm::vec3 maxCoord) : minCoord(minCoord), maxCoord(maxCoord) {}
 	bool DoesRayHit(const Ray& ray) const;
+	glm::vec3 CalculatePivot() const { return glm::lerp(minCoord, maxCoord, 0.5f); };
 
 	glm::vec3 minCoord{ 0 };
 	glm::vec3 maxCoord{ 0 };

@@ -46,6 +46,7 @@ struct YPlane : public Object {
 };
 
 struct BVH_Node : public Object {
+	BVH_Node() = default;
 	BVH_Node(const std::vector<Object*>& scrObjects) : BVH_Node(scrObjects, 0, (int)scrObjects.size()) {}
 	BVH_Node(const std::vector<Object*>& scrObjects, int start, int end);
 	~BVH_Node();
@@ -56,4 +57,23 @@ struct BVH_Node : public Object {
 	Object* left = nullptr;
 	Object* right = nullptr;
 	BoundingBox boundingBox;
+};
+
+struct ApplyRotation : public Object {
+
+};
+struct ApplyYRotation : public Object {
+	ApplyYRotation(float degress, Object* target);
+	~ApplyYRotation() { delete target; }
+	
+	bool Intersect(const Ray& ray, HitInfo& hitInfo) const override;
+	bool GetBoundingBox(BoundingBox& outBox) const override { outBox = box; return true; }
+
+	Object* target;
+	float angle;
+	float sinTheta;
+	float cosTheta;
+	bool boxExists;
+	BoundingBox box;
+	glm::vec3 pivot;
 };

@@ -23,11 +23,12 @@ public:
 
 	World& GetWorld() {	return world; } 
 private:
+	void ThreadWork(uint32_t index);
+
+	float time;
 	World world;
 	std::chrono::system_clock::time_point frameStartTime; // Benchmarking
 
-	void ThreadWork(uint32_t index);
-	
 	std::vector<std::thread> threads;
 	std::atomic<ThreadState> threadState = ThreadState::Work;
 	std::atomic<int> runningThreadAmount = 0;

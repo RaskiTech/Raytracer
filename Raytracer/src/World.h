@@ -11,9 +11,10 @@
 
 class World {
 public:
-	World();
+	World(float time = 0);
 	~World();
 
+	void CreateWithNewTime(float time);
 	glm::u8vec3 CalculateColorForScreenPosition(int x, int y);
 	glm::vec3 GetRayColor(const Ray& ray, int bounceAmount = 0);
 	Camera& GetWorldCamera() { return camera; }
@@ -24,7 +25,7 @@ private:
 
 private:
 	std::vector<Object*> noBoundingBoxObjects;
-	BVH_Node rootNode;
+	BVH_Node* rootNode;
 
 	Skybox skybox;
 	Camera camera;

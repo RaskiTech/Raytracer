@@ -7,6 +7,9 @@
 void FrameManager::StartNewFrame() {
 	TerminateAllThreads();
 
+	time += 1.0f;
+	world.CreateWithNewTime(time);
+
 	memset(&texturePixels, 0, texturePixels.size());
 	threadState = ThreadState::Work;
 
