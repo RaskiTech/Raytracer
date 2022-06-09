@@ -14,7 +14,7 @@
 
 std::vector<Object*> CreateNoBoundingBoxObjects() {
 	std::vector<Object*> objs = std::vector<Object*>();
-	objs.push_back(new YPlane(0, Material::CreateDiffuse(Texture::CreateCheckered({1.0f, 1.0f, 1.0f}, {0.2f, 0.6f, 0.3f}))));
+	objs.push_back(new YPlane(0, Material::CreateMetal(Texture::CreateCheckered({1.0f, 1.0f, 1.0f}, {0.2f, 0.6f, 0.3f}))));
 	return objs;
 }
 BVH_Node CreateBoundingBoxObjects() {
@@ -39,8 +39,8 @@ BVH_Node CreateBoundingBoxObjects() {
 	objects.push_back(new AxisAlignedCube{ {-6, 0, 5}, {6, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.4f, 0.4f, 0.4f })) });
 	objects.push_back(new AxisAlignedCube{ {-6, 5, -6}, {6, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.4f, 0.4f, 0.4f })) });
 
-	objects.push_back(new Sphere{ {3, 1.5f, 3.5f}, 1.5f, Material::CreateDiffuseLight({5.0f, 5.0f, 5.0f}) });
-	objects.push_back(new AxisAlignedCube{ {-3, 1, -2}, 1.0f, Material::CreateDiffuseLight({5.0f, 5.0f, 5.0f}) });
+	objects.push_back(new Sphere{ {3, 1.5f, 3.5f}, 1.5f, Material::CreateDiffuseLight({5.0f, 2.0f, 2.0f}) });
+	objects.push_back(new AxisAlignedCube{ {-3, 1, -2}, 1.0f, Material::CreateDiffuseLight({2.0f, 2.0f, 10.0f}) });
 
 #endif
 
@@ -86,15 +86,12 @@ glm::u8vec3 World::CalculateColorForScreenPosition(int x, int y) {
 		}
 	}
 	color /= SAMPLES_PER_PIXEL_AXIS * SAMPLES_PER_PIXEL_AXIS;
-	color = glm::clamp(color, glm::vec3{ 0 }, glm::vec3{ 1 });
 
-	// Gamma color correct (for diffuse materials)
-	color = glm::sqrt(color);
+	// A good approximate for gamma correction that also clamps values from 0-infinity to 0-1. For this reason it also preserves highly lit areas.
+	const float steepness = 5.0f;
+	color = 1.0f - 1.0f / (1.0f + steepness * color);
 
 	glm::u8vec3 color8Bit = { (char)(color.r * 255), (char)(color.g * 255), (char)(color.b * 255) };
-	if (color8Bit.r == 159 && color8Bit.g == 19 && color8Bit.b == 194)
-		std::cout << x << " " << y << std::endl;
-
 	return color8Bit;
 }
 
@@ -114,7 +111,7 @@ glm::vec3 World::GetRayColor(const Ray& ray, int bounceAmount) {
 	}
 
 	if (hitInfo.object == nullptr) {
-		return 0.5f * GetSkyboxPixel(ray.direction);
+		return SKYBOX_BRIGHTNESS * GetSkyboxPixel(ray.direction);
 	}
 
 	const Material& material = hitInfo.object->material;
@@ -135,15 +132,15 @@ glm::vec3 World::GetRayColor(const Ray& ray, int bounceAmount) {
 			return pixelColor;
 		}
 		case MaterialType::Metal: {
-			if (bounceAmount == 0 || material.reflectiveness == 0)
-				return glm::vec3{ 0 };//return material.texture->GetColorValue(hitInfo.uv, hitInfo.point);
+			if (bounceAmount == 0)
+				return glm::vec3{ 0 };
 
 			Ray reflectedRay;
 			reflectedRay.pos = hitInfo.point;
 			reflectedRay.direction = glm::normalize(ray.direction - 2.0f * hitInfo.normal * glm::dot(ray.direction, hitInfo.normal));
+			glm::vec3 newRayCol = GetRayColor(reflectedRay, bounceAmount - 1);
 
-			glm::vec3 pixelColor = 2.0f * (1.0f - material.reflectiveness) * material.texture->GetColorValue(hitInfo.uv, hitInfo.point)
-				* material.reflectiveness * GetRayColor(reflectedRay, bounceAmount - 1);
+			glm::vec3 pixelColor = material.texture->GetColorValue(hitInfo.uv, hitInfo.point) * newRayCol;
 			return pixelColor;
 		}
 		case MaterialType::DiffuseLight: {
@@ -162,30 +159,6 @@ glm::vec3 World::GetSkyboxPixel(const glm::vec3& direction) {
 	int intPixelY = (int)pixel.y;
 
 	return GetSkyboxPixel(intPixelX, intPixelY);
-
-	/*
-	float Xfraction = (intPixelX + 0.5f - pixel.x);
-	float Yfraction = (intPixelY + 0.5f - pixel.y);
-	float absX = glm::abs(Xfraction);
-	float absY = glm::abs(Yfraction);
-
-	float originalMultiplier = (1.0f - absX) * (1.0f - absY);
-	float otherXMultiplier = absX * (1.0f - absY);
-	float otherYMultiplier = (1.0f - absX) * absY;
-	float otherXYMultiplier = absX * absY;
-
-	int otherX = Xfraction < 0 ? (intPixelX + 1) : (intPixelX - 1);
-	int otherY = Yfraction < 0 ? (intPixelY + 1) : (intPixelY - 1);
-	otherX = otherX < 0 ? otherX + skybox.size.x : otherX % skybox.size.x;
-	otherY = otherY < 0 ? otherY + skybox.size.x : otherY % skybox.size.y;
-
-	glm::vec3 col = GetSkyboxPixel(intPixelX, intPixelY) * originalMultiplier;
-	col += GetSkyboxPixel(otherX, intPixelY) * otherXMultiplier;
-	col += GetSkyboxPixel(intPixelX, otherY) * otherYMultiplier;
-	col += GetSkyboxPixel(otherX, otherY) * otherXYMultiplier;
-
-	return col;
-	//*/
 }
 glm::vec3 World::GetSkyboxPixel(int x, int y) {
 	int index = 3 * (int)(y * skybox.size.x + x);

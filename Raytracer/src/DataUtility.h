@@ -103,12 +103,11 @@ enum class MaterialType {
 };
 struct Material {
 	Material() = default;
-	static Material CreateDiffuse(std::shared_ptr<Texture> tex) { return Material{ MaterialType::Diffuse, 0.0f, tex }; }
-	static Material CreateMetal(float reflectiveness, std::shared_ptr<Texture> tex) { return Material{ MaterialType::Metal, reflectiveness, tex }; }
-	static Material CreateDiffuseLight(glm::vec3 emittingColor) { return Material{ MaterialType::DiffuseLight, 0.0f, nullptr, emittingColor }; }
+	static Material CreateDiffuse(std::shared_ptr<Texture> tex) { return Material{ MaterialType::Diffuse, tex }; }
+	static Material CreateMetal(std::shared_ptr<Texture> tex) { return Material{ MaterialType::Metal, tex }; }
+	static Material CreateDiffuseLight(glm::vec3 emittingColor) { return Material{ MaterialType::DiffuseLight, nullptr, emittingColor }; }
 
 	MaterialType materialType = MaterialType::None;
-	float reflectiveness = 0.0f;
 	std::shared_ptr<Texture> texture;
 	glm::vec3 emittingColor = glm::vec3{ 0 }; // Could also be a texture at some point
 };
