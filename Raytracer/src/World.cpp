@@ -14,15 +14,16 @@
 
 std::vector<Object*> CreateNoBoundingBoxObjects(float time) {
 	std::vector<Object*> objs = std::vector<Object*>();
-	objs.push_back(new YPlane(0, Material::CreateMetal(Texture::CreateCheckered({1.0f, 1.0f, 1.0f}, {0.2f, 0.6f, 0.3f}))));
+	//objs.push_back(new YPlane(0, Material::CreateMetal(Texture::CreateCheckered({1.0f, 1.0f, 1.0f}, {0.2f, 0.6f, 0.3f}))));
 	return objs;
 }
 BVH_Node* CreateBoundingBoxObjects(float time) {
 	std::vector<Object*> objects = std::vector<Object*>();
 
-#if 0
-	objects.push_back(new AxisAlignedCube{ {6, 2, -9}, 2, Material::CreateMetal(Texture::CreateColored({ 0.4f, 0.4f, 0.4 }))});
+#if 1
+	objects.push_back(new AxisAlignedCube{ {6, 2, -9}, 2, Material::CreateDiffuse(Texture::CreateColored({0.4f, 0.4f, 0.4}))});
 	objects.push_back(new Sphere{ {8, 2, -4}, 2, Material::CreateDiffuse(Texture::CreateCheckered({ 0.6f, 0.3f, 0.2f }, { 1.0f, 1.0f, 1.0f})) });
+	objects.push_back(new ApplyZRotation(0, new PolygonMesh("src/stb_image/eb_house_plant_01.obj", 10, Material::CreateDiffuse(Texture::CreateUV()/*Texture::CreateColored({1.0f, 1.0f, 1.0f})*/))));
 
 	for (int i = 0; i < 15; i++)
 		objects.push_back(new Sphere{ 
@@ -36,7 +37,7 @@ BVH_Node* CreateBoundingBoxObjects(float time) {
 	objects.push_back(new AxisAlignedCube{ {-6, 5, -6}, {6, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.4f, 0.4f, 0.4f })) });
 
 	objects.push_back(new Sphere{ {3 * sin(time * 0.1f), 1.5f, 3.5f}, 1.5f, Material::CreateDiffuseLight({5.0f, 2.0f, 2.0f})});
-	objects.push_back(new ApplyYRotation(time, new AxisAlignedCube{{-3, 1, -2}, 1.0f, Material::CreateDiffuse(Texture::CreateColored({1.0f, 1.0f, 1.0f}))}));
+	objects.push_back(new ApplyXRotation(time * 0.7f, new ApplyYRotation(time, new AxisAlignedCube{{-3, 1, -2}, 1.0f, Material::CreateDiffuse(Texture::CreateColored({1.0f, 1.0f, 1.0f}))})));
 #endif
 
 	// This object now owns the pointers, and is responsible for deleting them

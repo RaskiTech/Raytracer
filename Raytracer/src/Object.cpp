@@ -1,7 +1,11 @@
 #include "Object.h"
 #include <iostream>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <algorithm>
 #include <gtc/constants.hpp>
+#include <gtx/component_wise.hpp>
 
 bool Sphere::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 	glm::vec3 distance = ray.pos - pos;
@@ -46,18 +50,17 @@ bool AxisAlignedCube::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 		hitInfo.normal = { 1, 0, 0 };
 	}
 
-	glm::vec3 yNormalCandidate;
 	if (ray.direction.y >= 0) {
 		tymin = (minCoord.y - ray.pos.y) / ray.direction.y;
 		tymax = (maxCoord.y - ray.pos.y) / ray.direction.y;
 
-		yNormalCandidate = { 0, -1, 0 };
+		axisNormalCandidate = { 0, -1, 0 };
 	}
 	else {
 		tymin = (maxCoord.y - ray.pos.y) / ray.direction.y;
 		tymax = (minCoord.y - ray.pos.y) / ray.direction.y;
 
-		yNormalCandidate = { 0, 1, 0 };
+		axisNormalCandidate = { 0, 1, 0 };
 	}
 
 	if ((tmin > tymax) || (tymin > tmax))
@@ -65,24 +68,23 @@ bool AxisAlignedCube::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 
 	if (tymin > tmin) {
 		tmin = tymin;
-		hitInfo.normal = yNormalCandidate;
+		hitInfo.normal = axisNormalCandidate;
 	}
 
 	if (tymax < tmax)
 		tmax = tymax;
 
-	glm::vec3 zNormalCandidate;
 	if (ray.direction.z >= 0) {
 		tzmin = (minCoord.z - ray.pos.z) / ray.direction.z;
 		tzmax = (maxCoord.z - ray.pos.z) / ray.direction.z;
 
-		zNormalCandidate = { 0, 0, -1 };
+		axisNormalCandidate = { 0, 0, -1 };
 	}
 	else {
 		tzmin = (maxCoord.z - ray.pos.z) / ray.direction.z;
 		tzmax = (minCoord.z - ray.pos.z) / ray.direction.z;
 
-		zNormalCandidate = { 0, 0, 1 };
+		axisNormalCandidate = { 0, 0, 1 };
 	}
 
 	if ((tmin > tzmax) || (tzmin > tmax))
@@ -90,7 +92,7 @@ bool AxisAlignedCube::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 
 	if (tzmin > tmin) {
 		tmin = tzmin;
-		hitInfo.normal = zNormalCandidate;
+		hitInfo.normal = axisNormalCandidate;
 	}
 
 	if (tzmax < tmax)
@@ -104,10 +106,14 @@ bool AxisAlignedCube::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 	hitInfo.object = (Object*)this;
 	hitInfo.point = ray.pos + ray.direction * tmin;
 	hitInfo.point += hitInfo.normal * 0.02f;
-	//hitInfo.uv = (hitInfo.point - minCoord) / (maxCoord - minCoord);
-	hitInfo.uv = { hitInfo.normal.x == 0 ? 0 : 1 , hitInfo.normal.z == 0 ? 0 : 1};
-	//if (hitInfo.uv.x == 1 && hitInfo.uv.y == 0)
-	//	std::cout << hitInfo.normal.x << " " << hitInfo.normal.z;
+
+	glm::vec3 minToMax01 = (hitInfo.point - minCoord) / (maxCoord - minCoord);
+	if (hitInfo.normal.x == 1 || hitInfo.normal.x == -1)
+		hitInfo.uv = { minToMax01.z, minToMax01.y };
+	else if (hitInfo.normal.y == 1 || hitInfo.normal.y == -1)
+		hitInfo.uv = { minToMax01.x, minToMax01.z };
+	else
+		hitInfo.uv = { minToMax01.x, minToMax01.y };
 
 	return true;
 }
@@ -231,7 +237,9 @@ bool BVH_Node::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 	return hit_left || hit_right;
 }
 
-ApplyYRotation::ApplyYRotation(float degress, Object* target) : target(target), angle(glm::radians(degress)) {
+inline void InitializeRotationTransform(const float& angle, const Object* target, float& sinTheta, float& cosTheta, bool& boxExists,
+	glm::vec3& pivot, BoundingBox& box, int axisIndex1, int axisIndex2, int rotationAxis)
+{
 	sinTheta = glm::sin(angle);
 	cosTheta = glm::cos(angle);
 	boxExists = target->GetBoundingBox(box);
@@ -245,14 +253,17 @@ ApplyYRotation::ApplyYRotation(float degress, Object* target) : target(target), 
 	for (int i = 0; i < 2; i++) {
 		for (int j = 0; j < 2; j++) {
 			for (int k = 0; k < 2; k++) {
-				float x = i * box.maxCoord.x + (1 - i) * box.minCoord.x;
-				float y = j * box.maxCoord.y + (1 - j) * box.minCoord.y;
-				float z = k * box.maxCoord.z + (1 - k) * box.minCoord.z;
+				float axis1 = i * box.maxCoord[axisIndex1] + (1 - i) * box.minCoord[axisIndex1];
+				float axis2 = j * box.maxCoord[axisIndex2] + (1 - j) * box.minCoord[axisIndex2];
+				float axisLeftover = k * box.maxCoord[rotationAxis] + (1 - k) * box.minCoord[rotationAxis];
 
-				float newx = cosTheta * x + sinTheta * z;
-				float newz = -sinTheta * x + cosTheta * z;
+				float new1 = cosTheta * axis1 + sinTheta * axis2;
+				float new2 = -sinTheta * axis1 + cosTheta * axis2;
 
-				glm::vec3 tester(newx, y, newz);
+				glm::vec3 tester;
+				tester[axisIndex1] = new1;
+				tester[axisIndex2] = new2;
+				tester[rotationAxis] = axisLeftover;
 				for (int c = 0; c < 3; c++) {
 					min[c] = fmin(min[c], tester[c]);
 					max[c] = fmax(max[c], tester[c]);
@@ -265,17 +276,28 @@ ApplyYRotation::ApplyYRotation(float degress, Object* target) : target(target), 
 	box.minCoord += pivot;
 	box.maxCoord += pivot;
 }
+ApplyYRotation::ApplyYRotation(float degress, Object* target) : target(target), angle(glm::radians(degress)) {
+	InitializeRotationTransform(angle, target, sinTheta, cosTheta, boxExists, pivot, box, 0, 2, 1);
+}
+ApplyZRotation::ApplyZRotation(float degress, Object* target) : target(target), angle(glm::radians(degress)) {
+	InitializeRotationTransform(angle, target, sinTheta, cosTheta, boxExists, pivot, box, 0, 1, 2);
+}
+ApplyXRotation::ApplyXRotation(float degress, Object* target) : target(target), angle(glm::radians(degress)) {
+	InitializeRotationTransform(angle, target, sinTheta, cosTheta, boxExists, pivot, box, 1, 2, 0);
+}
 
-bool ApplyYRotation::Intersect(const Ray& ray, HitInfo& hitInfo) const {
+bool RotationIntersect(const Ray& ray, HitInfo& hitInfo, const glm::vec3& pivot, const float& sinTheta,
+					   const float& cosTheta, Object*const & target, const int axisIndex1, const int axisIndex2) 
+{
 	glm::vec3 originOriginal = ray.pos - pivot;
 	glm::vec3 originModified = originOriginal;
 	glm::vec3 direction = ray.direction;
 
-    originModified.x = cosTheta*originOriginal.x - sinTheta*originOriginal.z;
-    originModified.z = sinTheta*originOriginal.x + cosTheta*originOriginal.z;
+    originModified[axisIndex1] = cosTheta * originOriginal[axisIndex1] - sinTheta * originOriginal[axisIndex2];
+    originModified[axisIndex2] = sinTheta*originOriginal[axisIndex1] + cosTheta*originOriginal[axisIndex2];
 
-    direction.x = cosTheta*ray.direction.x - sinTheta*ray.direction.z;
-    direction.z = sinTheta*ray.direction.x + cosTheta*ray.direction.z;
+    direction[axisIndex1] = cosTheta*ray.direction[axisIndex1] - sinTheta*ray.direction[axisIndex2];
+    direction[axisIndex2] = sinTheta*ray.direction[axisIndex1] + cosTheta*ray.direction[axisIndex2];
 
     Ray rotated(originModified + pivot, direction);
 
@@ -287,14 +309,231 @@ bool ApplyYRotation::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 	originModified = originOriginal;
     glm::vec3 normal = hitInfo.normal;
 
-    originModified.x =  cosTheta*originOriginal.x + sinTheta*originOriginal.z;
-    originModified.z = -sinTheta*originOriginal.x + cosTheta*originOriginal.z;
+    originModified[axisIndex1] =  cosTheta*originOriginal[axisIndex1] + sinTheta*originOriginal[axisIndex2];
+    originModified[axisIndex2] = -sinTheta*originOriginal[axisIndex1] + cosTheta*originOriginal[axisIndex2];
 
-    normal.x =  cosTheta*hitInfo.normal.x + sinTheta*hitInfo.normal.z;
-    normal.z = -sinTheta*hitInfo.normal.x + cosTheta*hitInfo.normal.z;
+    normal[axisIndex1] =  cosTheta*hitInfo.normal[axisIndex1] + sinTheta*hitInfo.normal[axisIndex2];
+    normal[axisIndex2] = -sinTheta*hitInfo.normal[axisIndex1] + cosTheta*hitInfo.normal[axisIndex2];
 
     hitInfo.point = originModified + pivot;
 	hitInfo.normal = normal;
 
     return true;
+}
+
+bool ApplyYRotation::Intersect(const Ray& ray, HitInfo& hitInfo) const {
+	return RotationIntersect(ray, hitInfo, pivot, sinTheta, cosTheta, target, 0, 2);
+}
+bool ApplyZRotation::Intersect(const Ray& ray, HitInfo& hitInfo) const {
+	return RotationIntersect(ray, hitInfo, pivot, sinTheta, cosTheta, target, 0, 1);
+}
+bool ApplyXRotation::Intersect(const Ray& ray, HitInfo& hitInfo) const {
+	return RotationIntersect(ray, hitInfo, pivot, sinTheta, cosTheta, target, 1, 2);
+}
+
+// genpfault on stackoverflow
+std::vector<Vertex> LoadOBJ( std::istream& in ) {
+	struct VertRef {
+		VertRef( int v, int vt, int vn ) : v(v), vt(vt), vn(vn) { }
+		int v, vt, vn;
+	};
+
+    std::vector< Vertex > verts;
+    std::vector< glm::vec4 > positions( 1, glm::vec4( 0, 0, 0, 0 ) );
+    std::vector< glm::vec3 > texcoords( 1, glm::vec3( 0, 0, 0 ) );
+    std::vector< glm::vec3 > normals( 1, glm::vec3( 0, 0, 0 ) );
+    std::string lineStr;
+    while( std::getline( in, lineStr ) )
+    {
+        std::istringstream lineSS( lineStr );
+        std::string lineType;
+        lineSS >> lineType;
+
+        // vertex
+        if( lineType == "v" )
+        {
+            float x = 0, y = 0, z = 0, w = 1;
+            lineSS >> x >> y >> z >> w;
+            positions.push_back( glm::vec4( x, y, z, w ) );
+        }
+
+        // texture
+        if( lineType == "vt" )
+        {
+            float u = 0, v = 0, w = 0;
+            lineSS >> u >> v >> w;
+            texcoords.push_back( glm::vec3( u, v, w ) );
+        }
+
+        // normal
+        if( lineType == "vn" )
+        {
+            float i = 0, j = 0, k = 0;
+            lineSS >> i >> j >> k;
+            normals.push_back( glm::normalize( glm::vec3( i, j, k ) ) );
+        }
+
+        // polygon
+        if( lineType == "f" )
+        {
+            std::vector< VertRef > refs;
+            std::string refStr;
+            while( lineSS >> refStr )
+            {
+                std::istringstream ref( refStr );
+                std::string vStr, vtStr, vnStr;
+                std::getline( ref, vStr, '/' );
+                std::getline( ref, vtStr, '/' );
+                std::getline( ref, vnStr, '/' );
+                int v = atoi( vStr.c_str() );
+                int vt = atoi( vtStr.c_str() );
+                int vn = atoi( vnStr.c_str() );
+                v  = (  v >= 0 ?  v : positions.size() +  v );
+                vt = ( vt >= 0 ? vt : texcoords.size() + vt );
+                vn = ( vn >= 0 ? vn : normals.size()   + vn );
+                refs.push_back( VertRef( v, vt, vn ) );
+            }
+
+            // triangulate, assuming n>3-gons are convex and coplanar
+            for( size_t i = 1; i+1 < refs.size(); ++i )
+            {
+                const VertRef* p[3] = { &refs[0], &refs[i], &refs[i+1] };
+
+                // http://www.opengl.org/wiki/Calculating_a_Surface_Normal
+                glm::vec3 U( positions[ p[1]->v ] - positions[ p[0]->v ] );
+                glm::vec3 V( positions[ p[2]->v ] - positions[ p[0]->v ] );
+                glm::vec3 faceNormal = glm::normalize( glm::cross( U, V ) );
+
+                for( size_t j = 0; j < 3; ++j )
+                {
+                    Vertex vert;
+                    vert.position = glm::vec3( positions[ p[j]->v ] );
+                    vert.texcoord = glm::vec2( texcoords[ p[j]->vt ] );
+                    vert.normal = ( p[j]->vn != 0 ? normals[ p[j]->vn ] : faceNormal );
+                    verts.push_back( vert );
+                }
+            }
+        }
+    }
+
+    return verts;
+}
+
+BoundingBox GetExtentsFromPositionArray( const glm::vec3* pts, size_t stride, size_t count )
+{
+    unsigned char* base = (unsigned char*)pts;
+    glm::vec3 pmin( *(glm::vec3*)base );
+    glm::vec3 pmax( *(glm::vec3*)base );
+    for( size_t i = 0; i < count; ++i, base += stride )
+    {
+        const glm::vec3& pt = *(glm::vec3*)base;
+        pmin = glm::min( pmin, pt );
+        pmax = glm::max( pmax, pt );
+    }
+
+	return BoundingBox(pmin, pmax);
+}
+
+PolygonMesh::PolygonMesh(std::string pathToObjFile, float size, Material mat) : Object(mat) {
+	std::filebuf fb;
+	if (!fb.open(pathToObjFile, std::ios::in)) {
+		std::cout << "Couldn't load file in " << pathToObjFile << ". Currently in " << std::filesystem::current_path() << std::endl;
+		fb.close();
+		return;
+	}
+
+	std::istream istr(&fb);
+	std::vector<Vertex> vertices = LoadOBJ(istr);
+
+	// Scale it to the right size
+	const glm::vec3* firstPosition = &vertices[0].position;
+	const int stride = sizeof(Vertex);
+	const int vertexCount = vertices.size();
+
+    BoundingBox box = GetExtentsFromPositionArray(firstPosition, stride, vertexCount);
+    const glm::vec3 center = box.minCoord * 0.5f + box.maxCoord * 0.5f;
+    const float factor = size / glm::compMax( box.maxCoord - box.minCoord );
+	unsigned char* base = (unsigned char*)firstPosition;
+
+    for( size_t i = 0; i < vertexCount; ++i, base += stride ) {
+        glm::vec3& pt = *(glm::vec3*)base;
+        pt = ( pt - center ) * factor;
+    }
+	box.minCoord = (box.minCoord - center) * factor;
+	box.maxCoord = (box.maxCoord - center) * factor;
+	fb.close();
+
+	// From vertices to triangles
+	if (vertices.size() % 3 != 0)
+		std::cout << "Vertex count was not a multiple of 3.\n";
+	std::vector<Object*> tris;
+	tris.resize(vertices.size() / 3);
+	for (int i = 0; i < tris.size(); i++) {
+		tris[i] = new Triangle(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]);
+	}
+	triangles = new BVH_Node(tris);
+}
+bool PolygonMesh::Intersect(const Ray& ray, HitInfo& hitInfo) const {
+	if (triangles->Intersect(ray, hitInfo)) {
+		hitInfo.object = (Object*)this; return true;
+		if (hitInfo.normal.y < 0)
+			int i = 0;
+	}
+	else return false;
+}
+
+Triangle::Triangle(Vertex v1, Vertex v2, Vertex v3) {
+	vertices[0] = v1; vertices[1] = v2; vertices[2] = v3;
+	box = BoundingBox(glm::min(v1.position, glm::min(v2.position, v3.position)), glm::max(v1.position, glm::max(v2.position, v3.position)));
+}
+
+// Möller–Trumbore intersection algorithm
+bool Triangle::Intersect(const Ray& ray, HitInfo& hitInfo) const {
+	const float EPSILON = 0.0000001f;
+	const glm::vec3& vertex0 = vertices[0].position;
+	const glm::vec3& vertex1 = vertices[1].position;
+	const glm::vec3& vertex2 = vertices[2].position;
+	glm::vec3 edge1, edge2, h, s, q;
+	float a, f, u, v;
+	edge1 = vertex1 - vertex0;
+	edge2 = vertex2 - vertex0;
+	h = glm::cross(ray.direction, edge2);
+	a = glm::dot(edge1, h);
+	if (a > -EPSILON && a < EPSILON)
+		return false ;    // This ray is parallel to this triangle.
+	f = 1.0f / a;
+	s = ray.pos - vertex0;
+	u = f * glm::dot(s, h);
+	if (u < 0.0f || u > 1.0f)
+		return false;
+	q = glm::cross(s, edge1);
+	v = f * glm::dot(ray.direction, q);
+	if (v < 0.0f || u + v > 1.0f)
+		return false;
+	// At this stage we can compute t to find out where the intersection point is on the line.
+	float t = f * glm::dot(edge2, q);
+	if (t > EPSILON) // ray intersection
+	{
+		hitInfo.point = ray.pos + ray.direction * t;
+		hitInfo.distance = t;
+		hitInfo.normal = vertices[0].normal; // They should all be the same, doesn't matter what we choose
+
+		hitInfo.point += hitInfo.normal * 0.01f;
+
+		// Calculate UVs
+		const glm::vec3& h  = hitInfo.point;
+		const glm::vec3& p1 = vertex0;
+		const glm::vec3& p2 = vertex1;
+		const glm::vec3& p3 = vertex2;
+
+		// Barycentric coordinates
+		float denominator = p1.y*(p2.z-p3.z)-p2.y*(p1.z-p3.z)+p3.y*(p1.z-p2.z);
+		float percent0 =  (h.y*(p2.z-p3.z)-h.z*(p2.y-p3.y)+p2.y*p3.z-p3.y*p2.z)/denominator;
+		float percent1 = -(h.y*(p1.z-p3.z)-h.z*(p1.y-p3.y)+p1.y*p3.z-p3.y*p1.z)/denominator;
+		float percent2 =  (h.y*(p1.z-p2.z)-h.z*(p1.y-p2.y)+p1.y*p2.z-p2.y*p1.z)/denominator;
+		hitInfo.uv = vertices[0].texcoord * percent0 + vertices[1].texcoord * percent1 + vertices[2].texcoord * percent2;
+		return true;
+	}
+	else // This means that there is a line intersection but not a ray intersection.
+		return false;
 }

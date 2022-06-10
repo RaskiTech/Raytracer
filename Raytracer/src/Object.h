@@ -59,12 +59,64 @@ struct BVH_Node : public Object {
 	BoundingBox boundingBox;
 };
 
-struct ApplyRotation : public Object {
-
+struct Vertex {
+    glm::vec3 position;
+    glm::vec2 texcoord;
+    glm::vec3 normal;
 };
+
+struct Triangle : public Object {
+	Triangle(Vertex v1, Vertex v2, Vertex v3);
+
+	bool Intersect(const Ray& ray, HitInfo& hitInfo) const override;
+	bool GetBoundingBox(BoundingBox& outBox) const override { outBox = box; return true; }
+
+	Vertex vertices[3];
+	BoundingBox box;
+};
+
+struct PolygonMesh : public Object {
+    PolygonMesh(std::string pathToObjFile, float size, Material material);
+
+	bool Intersect(const Ray& ray, HitInfo& hitInfo) const override;
+	bool GetBoundingBox(BoundingBox& outBox) const override { return triangles->GetBoundingBox(outBox); }
+
+	BVH_Node* triangles;
+};
+
 struct ApplyYRotation : public Object {
 	ApplyYRotation(float degress, Object* target);
 	~ApplyYRotation() { delete target; }
+	
+	bool Intersect(const Ray& ray, HitInfo& hitInfo) const override;
+	bool GetBoundingBox(BoundingBox& outBox) const override { outBox = box; return true; }
+
+	Object* target;
+	float angle;
+	float sinTheta;
+	float cosTheta;
+	bool boxExists;
+	BoundingBox box;
+	glm::vec3 pivot;
+};
+struct ApplyZRotation : public Object {
+	ApplyZRotation(float degress, Object* target);
+	~ApplyZRotation() { delete target; }
+	
+	bool Intersect(const Ray& ray, HitInfo& hitInfo) const override;
+	bool GetBoundingBox(BoundingBox& outBox) const override { outBox = box; return true; }
+
+	Object* target;
+	float angle;
+	float sinTheta;
+	float cosTheta;
+	bool boxExists;
+	BoundingBox box;
+	glm::vec3 pivot;
+};
+struct ApplyXRotation : public Object {
+	ApplyXRotation(float degress, Object* target);
+	~ApplyXRotation() { delete target; }
 	
 	bool Intersect(const Ray& ray, HitInfo& hitInfo) const override;
 	bool GetBoundingBox(BoundingBox& outBox) const override { outBox = box; return true; }
