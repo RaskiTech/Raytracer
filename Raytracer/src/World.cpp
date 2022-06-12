@@ -14,7 +14,7 @@
 
 std::vector<Object*> CreateNoBoundingBoxObjects(float time) {
 	std::vector<Object*> objs = std::vector<Object*>();
-	//objs.push_back(new YPlane(0, Material::CreateMetal(Texture::CreateCheckered({1.0f, 1.0f, 1.0f}, {0.2f, 0.6f, 0.3f}))));
+	objs.push_back(new YPlane(0, Material::CreateMetal(Texture::CreateCheckered({1.0f, 1.0f, 1.0f}, {0.2f, 0.6f, 0.3f}))));
 	return objs;
 }
 BVH_Node* CreateBoundingBoxObjects(float time) {
@@ -23,7 +23,8 @@ BVH_Node* CreateBoundingBoxObjects(float time) {
 #if 1
 	objects.push_back(new AxisAlignedCube{ {6, 2, -9}, 2, Material::CreateDiffuse(Texture::CreateColored({0.4f, 0.4f, 0.4}))});
 	objects.push_back(new Sphere{ {8, 2, -4}, 2, Material::CreateDiffuse(Texture::CreateCheckered({ 0.6f, 0.3f, 0.2f }, { 1.0f, 1.0f, 1.0f})) });
-	objects.push_back(new ApplyZRotation(0, new PolygonMesh("src/stb_image/eb_house_plant_01.obj", 10, Material::CreateDiffuse(Texture::CreateUV()/*Texture::CreateColored({1.0f, 1.0f, 1.0f})*/))));
+	objects.push_back(new ApplyZRotation(0, new PolygonMesh("src/stb_image/Rock.obj", 10, Material::CreateDiffuse(Texture::CreateFromImage("src/stb_image/Rock_Texture.jpg") ))));
+	Triangle* tri = new Triangle(Vertex{ glm::vec3{-1, 2, 0} }, Vertex{ glm::vec3{0, 4, 0} }, Vertex{ glm::vec3{1, 2, 0} });
 
 	for (int i = 0; i < 15; i++)
 		objects.push_back(new Sphere{ 
@@ -90,6 +91,7 @@ glm::u8vec3 World::CalculateColorForScreenPosition(int x, int y) {
 			color += GetRayColor(ray, LIGHT_BOUNCE_AMOUNT);
 		}
 	}
+
 	color /= SAMPLES_PER_PIXEL_AXIS * SAMPLES_PER_PIXEL_AXIS;
 
 	// A good approximate for gamma correction that also clamps values from 0-infinity to 0-1. For this reason it also preserves highly lit areas.
@@ -102,7 +104,7 @@ glm::u8vec3 World::CalculateColorForScreenPosition(int x, int y) {
 
 glm::vec3 World::GetRayColor(const Ray& ray, int bounceAmount) {
 	HitInfo hitInfo;
-	rootNode->Intersect(ray, hitInfo);
+	bool hit = rootNode->Intersect(ray, hitInfo);
 	{
 		HitInfo thisHitInfo;
 
@@ -110,15 +112,17 @@ glm::vec3 World::GetRayColor(const Ray& ray, int bounceAmount) {
 			if (!noBoundingBoxObjects[i]->Intersect(ray, thisHitInfo))
 				continue;
 
-			if (thisHitInfo.distance < hitInfo.distance)
+			if (thisHitInfo.distance < hitInfo.distance) {
+				hit = true;
 				hitInfo = thisHitInfo;
+			}
 		}
 	}
 
-	if (hitInfo.object == nullptr) {
+	if (!hit) {
 		return SKYBOX_BRIGHTNESS * GetSkyboxPixel(ray.direction);
 	}
-
+	
 	const Material& material = hitInfo.object->material;
 	switch (material.materialType)
 	{

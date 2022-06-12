@@ -408,7 +408,8 @@ std::vector<Vertex> LoadOBJ( std::istream& in ) {
                 {
                     Vertex vert;
                     vert.position = glm::vec3( positions[ p[j]->v ] );
-                    vert.texcoord = glm::vec2( texcoords[ p[j]->vt ] );
+					vert.texcoord = glm::vec2( texcoords[ p[j]->vt ] );
+
                     vert.normal = ( p[j]->vn != 0 ? normals[ p[j]->vn ] : faceNormal );
                     verts.push_back( vert );
                 }
@@ -476,19 +477,80 @@ PolygonMesh::PolygonMesh(std::string pathToObjFile, float size, Material mat) : 
 bool PolygonMesh::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 	if (triangles->Intersect(ray, hitInfo)) {
 		hitInfo.object = (Object*)this; return true;
-		if (hitInfo.normal.y < 0)
-			int i = 0;
 	}
 	else return false;
 }
 
-Triangle::Triangle(Vertex v1, Vertex v2, Vertex v3) {
-	vertices[0] = v1; vertices[1] = v2; vertices[2] = v3;
-	box = BoundingBox(glm::min(v1.position, glm::min(v2.position, v3.position)), glm::max(v1.position, glm::max(v2.position, v3.position)));
-}
-
-// Möller–Trumbore intersection algorithm
+// modified Möller–Trumbore intersection algorithm
 bool Triangle::Intersect(const Ray& ray, HitInfo& hitInfo) const {
+	/*
+	const float kEpsilon = 0.0000001f;
+	const glm::vec3& v0 = vertices[0].position;
+	const glm::vec3& v1 = vertices[1].position;
+	const glm::vec3& v2 = vertices[2].position;
+
+	// compute plane's normal
+    glm::vec3 v0v1 = v1 - v0; 
+    glm::vec3 v0v2 = v2 - v0; 
+    // no need to normalize
+    glm::vec3 N = glm::cross(v0v1, v0v2);
+    float denom = glm::dot(N, N); 
+ 
+    // check if ray and plane are parallel ?
+    float NdotRayDirection = glm::dot(N, ray.direction); 
+    if (fabs(NdotRayDirection) < kEpsilon)  //almost 0 
+        return false;  //they are parallel so they don't intersect ! 
+ 
+    // compute d parameter using equation 2
+    float d = glm::dot(N, v0); 
+ 
+    // compute t (equation 3)
+    float t = (glm::dot(N, ray.pos) + d) / NdotRayDirection; 
+    if (t < 0) return false;  //the triangle is behind 
+ 
+    // compute the intersection point using equation 1
+    glm::vec3 P = ray.pos + t * ray.direction; 
+ 
+    glm::vec3 C;  //vector perpendicular to triangle's plane 
+ 
+    // edge 0
+    glm::vec3 edge0 = v1 - v0; 
+    glm::vec3 vp0 = P - v0; 
+    C = glm::cross(edge0, vp0); 
+    if (glm::dot(N, C) < 0) return false;  //P is on the right side 
+ 
+    // edge 1
+    glm::vec3 edge1 = v2 - v1; 
+    glm::vec3 vp1 = P - v1; 
+    C = glm::cross(edge1, vp1); 
+	float u, v;
+    if ((u = glm::dot(N, C)) < 0)  return false;  //P is on the right side 
+ 
+    // edge 2
+    glm::vec3 edge2 = v0 - v2; 
+    glm::vec3 vp2 = P - v2; 
+    C = glm::cross(edge2, vp2); 
+    if ((v = glm::dot(N, C)) < 0) return false;  //P is on the right side; 
+ 
+    u /= denom; 
+    v /= denom;
+
+	float p1 = u;
+	float p2 = v;
+	float p3 = 1 - u - v;
+
+	hitInfo.object = (Object*)this;
+	hitInfo.normal = vertices[0].normal;
+	hitInfo.point = P + hitInfo.normal * 0.01f;
+	hitInfo.distance = t;
+	hitInfo.uv = p1*vertices[0].texcoord + p2*vertices[1].texcoord + p3*vertices[2].texcoord;
+	if (glm::compMax(hitInfo.uv) > 1 || glm::compMin(hitInfo.uv) < 0)
+		hitInfo.uv = glm::clamp(hitInfo.uv, { 0 }, { 1.0 });
+	hitInfo.uv = glm::vec2{ 0.8f };
+ 
+    return true;  //this ray hits the triangle 
+	*/
+
 	const float EPSILON = 0.0000001f;
 	const glm::vec3& vertex0 = vertices[0].position;
 	const glm::vec3& vertex1 = vertices[1].position;
@@ -514,24 +576,30 @@ bool Triangle::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 	float t = f * glm::dot(edge2, q);
 	if (t > EPSILON) // ray intersection
 	{
-		hitInfo.point = ray.pos + ray.direction * t;
-		hitInfo.distance = t;
-		hitInfo.normal = vertices[0].normal; // They should all be the same, doesn't matter what we choose
-
-		hitInfo.point += hitInfo.normal * 0.01f;
-
-		// Calculate UVs
-		const glm::vec3& h  = hitInfo.point;
+		const glm::vec3& h  = ray.pos + ray.direction * t;
 		const glm::vec3& p1 = vertex0;
 		const glm::vec3& p2 = vertex1;
 		const glm::vec3& p3 = vertex2;
-
-		// Barycentric coordinates
+		// Calculate UVs using barycentric coordinates
 		float denominator = p1.y*(p2.z-p3.z)-p2.y*(p1.z-p3.z)+p3.y*(p1.z-p2.z);
+		if (denominator == 0) // The points are colinear, so this can't be computed
+			return false;
+
+		hitInfo.distance = t;
+		hitInfo.normal = vertices[0].normal; // They should all be the same, doesn't matter what we choose
+		hitInfo.object = (Object*)this;
+		hitInfo.point = h + hitInfo.normal * 0.01f;
+
 		float percent0 =  (h.y*(p2.z-p3.z)-h.z*(p2.y-p3.y)+p2.y*p3.z-p3.y*p2.z)/denominator;
 		float percent1 = -(h.y*(p1.z-p3.z)-h.z*(p1.y-p3.y)+p1.y*p3.z-p3.y*p1.z)/denominator;
 		float percent2 =  (h.y*(p1.z-p2.z)-h.z*(p1.y-p2.y)+p1.y*p2.z-p2.y*p1.z)/denominator;
 		hitInfo.uv = vertices[0].texcoord * percent0 + vertices[1].texcoord * percent1 + vertices[2].texcoord * percent2;
+
+		// Wrapping
+		hitInfo.uv -= (glm::uvec2)hitInfo.uv;
+		if (hitInfo.uv.x < 0) hitInfo.uv.x += 1;
+		if (hitInfo.uv.y < 0) hitInfo.uv.y += 1;
+
 		return true;
 	}
 	else // This means that there is a line intersection but not a ray intersection.

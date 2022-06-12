@@ -66,7 +66,10 @@ struct Vertex {
 };
 
 struct Triangle : public Object {
-	Triangle(Vertex v1, Vertex v2, Vertex v3);
+	Triangle(Vertex v1, Vertex v2, Vertex v3) : Triangle(v1, v2, v3, Material()) {}
+	Triangle(Vertex v1, Vertex v2, Vertex v3, Material mat)
+		: Object(mat), vertices{v1, v2, v3}, 
+		box(BoundingBox(glm::min(v1.position, glm::min(v2.position, v3.position)), glm::max(v1.position, glm::max(v2.position, v3.position)))) {}
 
 	bool Intersect(const Ray& ray, HitInfo& hitInfo) const override;
 	bool GetBoundingBox(BoundingBox& outBox) const override { outBox = box; return true; }
