@@ -45,6 +45,17 @@ struct YPlane : public Object {
 	float yPos = 0.1f;
 };
 
+struct Fog : public Object {
+	Fog(glm::vec3 pos, float radius, float density, std::shared_ptr<Texture> texture)
+		: boundary(AxisAlignedCube(pos, radius, Material())), negInverseDensity(-1 / density), Object(Material::CreateIsotropic(texture)) {}
+
+	bool Intersect(const Ray& ray, HitInfo& hitInfo) const override;
+	bool GetBoundingBox(BoundingBox& outBox) const override;
+
+	AxisAlignedCube boundary;
+	float negInverseDensity;
+};
+
 struct BVH_Node : public Object {
 	BVH_Node() = default;
 	BVH_Node(const std::vector<Object*>& scrObjects) : BVH_Node(scrObjects, 0, (int)scrObjects.size()) {}

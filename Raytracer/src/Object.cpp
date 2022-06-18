@@ -36,18 +36,21 @@ bool Sphere::GetBoundingBox(BoundingBox& outBox) const {
 bool AxisAlignedCube::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 	float tmin, tmax, tymin, tymax, tzmin, tzmax;
 	glm::vec3 axisNormalCandidate;
+	glm::vec3 tMaxAxisNormalCandidate;
 
 	if (ray.direction.x >= 0) {
 		tmin = (minCoord.x - ray.pos.x) / ray.direction.x;
 		tmax = (maxCoord.x - ray.pos.x) / ray.direction.x;
 
 		hitInfo.normal = { -1, 0, 0 };
+		tMaxAxisNormalCandidate = hitInfo.normal;
 	}
 	else {
 		tmin = (maxCoord.x - ray.pos.x) / ray.direction.x;
 		tmax = (minCoord.x - ray.pos.x) / ray.direction.x;
 
 		hitInfo.normal = { 1, 0, 0 };
+		tMaxAxisNormalCandidate = hitInfo.normal;
 	}
 
 	if (ray.direction.y >= 0) {
@@ -71,8 +74,10 @@ bool AxisAlignedCube::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 		hitInfo.normal = axisNormalCandidate;
 	}
 
-	if (tymax < tmax)
+	if (tymax < tmax) {
 		tmax = tymax;
+		tMaxAxisNormalCandidate = axisNormalCandidate;
+	}
 
 	if (ray.direction.z >= 0) {
 		tzmin = (minCoord.z - ray.pos.z) / ray.direction.z;
@@ -95,12 +100,21 @@ bool AxisAlignedCube::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 		hitInfo.normal = axisNormalCandidate;
 	}
 
-	if (tzmax < tmax)
+	if (tzmax < tmax) {
 		tmax = tzmax;
+		tMaxAxisNormalCandidate = axisNormalCandidate;
+	}
 
-	// Filter out collisions where the min behind player.
-	if (tmin < 0.0f)
+	// Filter out collisions where both father and closer collision is behind.
+	// This way we can see the inside of this cube
+	if (tmin < 0.0f && tmax < 0.0f)
 		return false;
+
+	// If the ray is inside the box, use tmax as distance
+	if (tmin < 0) {
+		hitInfo.normal = tMaxAxisNormalCandidate;
+		tmin = tmax;
+	}
 
 	hitInfo.distance = tmin;
 	hitInfo.object = (Object*)this;
@@ -483,73 +497,6 @@ bool PolygonMesh::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 
 // modified Möller–Trumbore intersection algorithm
 bool Triangle::Intersect(const Ray& ray, HitInfo& hitInfo) const {
-	/*
-	const float kEpsilon = 0.0000001f;
-	const glm::vec3& v0 = vertices[0].position;
-	const glm::vec3& v1 = vertices[1].position;
-	const glm::vec3& v2 = vertices[2].position;
-
-	// compute plane's normal
-    glm::vec3 v0v1 = v1 - v0; 
-    glm::vec3 v0v2 = v2 - v0; 
-    // no need to normalize
-    glm::vec3 N = glm::cross(v0v1, v0v2);
-    float denom = glm::dot(N, N); 
- 
-    // check if ray and plane are parallel ?
-    float NdotRayDirection = glm::dot(N, ray.direction); 
-    if (fabs(NdotRayDirection) < kEpsilon)  //almost 0 
-        return false;  //they are parallel so they don't intersect ! 
- 
-    // compute d parameter using equation 2
-    float d = glm::dot(N, v0); 
- 
-    // compute t (equation 3)
-    float t = (glm::dot(N, ray.pos) + d) / NdotRayDirection; 
-    if (t < 0) return false;  //the triangle is behind 
- 
-    // compute the intersection point using equation 1
-    glm::vec3 P = ray.pos + t * ray.direction; 
- 
-    glm::vec3 C;  //vector perpendicular to triangle's plane 
- 
-    // edge 0
-    glm::vec3 edge0 = v1 - v0; 
-    glm::vec3 vp0 = P - v0; 
-    C = glm::cross(edge0, vp0); 
-    if (glm::dot(N, C) < 0) return false;  //P is on the right side 
- 
-    // edge 1
-    glm::vec3 edge1 = v2 - v1; 
-    glm::vec3 vp1 = P - v1; 
-    C = glm::cross(edge1, vp1); 
-	float u, v;
-    if ((u = glm::dot(N, C)) < 0)  return false;  //P is on the right side 
- 
-    // edge 2
-    glm::vec3 edge2 = v0 - v2; 
-    glm::vec3 vp2 = P - v2; 
-    C = glm::cross(edge2, vp2); 
-    if ((v = glm::dot(N, C)) < 0) return false;  //P is on the right side; 
- 
-    u /= denom; 
-    v /= denom;
-
-	float p1 = u;
-	float p2 = v;
-	float p3 = 1 - u - v;
-
-	hitInfo.object = (Object*)this;
-	hitInfo.normal = vertices[0].normal;
-	hitInfo.point = P + hitInfo.normal * 0.01f;
-	hitInfo.distance = t;
-	hitInfo.uv = p1*vertices[0].texcoord + p2*vertices[1].texcoord + p3*vertices[2].texcoord;
-	if (glm::compMax(hitInfo.uv) > 1 || glm::compMin(hitInfo.uv) < 0)
-		hitInfo.uv = glm::clamp(hitInfo.uv, { 0 }, { 1.0 });
-	hitInfo.uv = glm::vec2{ 0.8f };
- 
-    return true;  //this ray hits the triangle 
-	*/
 
 	const float EPSILON = 0.0000001f;
 	const glm::vec3& vertex0 = vertices[0].position;
@@ -604,4 +551,47 @@ bool Triangle::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 	}
 	else // This means that there is a line intersection but not a ray intersection.
 		return false;
+}
+
+bool Fog::Intersect(const Ray& ray, HitInfo& hitInfo) const {
+	HitInfo info1, info2;
+
+	if (!boundary.Intersect(ray, info1))
+		return false;
+
+	Ray rayPastCollision = Ray(ray.pos + ray.direction * info1.distance - info1.normal * 0.001f, ray.direction);
+	bool originalRayInsideVolume = !boundary.Intersect(rayPastCollision, info2);
+
+	glm::vec3 fogEnterPoint;
+	glm::vec3 fogExitPoint;
+	if (originalRayInsideVolume) {
+		fogEnterPoint = ray.pos;
+		fogExitPoint = rayPastCollision.pos;
+	}
+	else {
+		fogEnterPoint = rayPastCollision.pos;
+		fogExitPoint = rayPastCollision.pos + rayPastCollision.direction * info2.distance;
+	}
+
+	// If the fog was infinite, how far would the ray travel?
+	float supposedHitDistance = negInverseDensity * glm::log(Random01());
+	float travelDistanceInside = glm::distance(fogEnterPoint, fogExitPoint);
+	if (supposedHitDistance > travelDistanceInside) {
+		return false;
+	}
+
+	hitInfo.normal = glm::vec3{ 0, 1, 0 };
+	hitInfo.uv = { 0, 0 };
+	hitInfo.object = (Object*)this;
+	hitInfo.distance = supposedHitDistance;
+	if (!originalRayInsideVolume)
+		hitInfo.distance += info1.distance;
+	hitInfo.point = ray.pos + ray.direction * hitInfo.distance * 1.001f;
+
+	return true;
+}
+
+bool Fog::GetBoundingBox(BoundingBox& outBox) const {
+	boundary.GetBoundingBox(outBox);
+	return true;
 }

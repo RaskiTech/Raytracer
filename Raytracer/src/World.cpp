@@ -20,7 +20,7 @@ std::vector<Object*> CreateNoBoundingBoxObjects(float time) {
 BVH_Node* CreateBoundingBoxObjects(float time) {
 	std::vector<Object*> objects = std::vector<Object*>();
 
-#if 1
+#if 0
 	objects.push_back(new AxisAlignedCube{ {6, 2, -9}, 2, Material::CreateDiffuse(Texture::CreateColored({0.4f, 0.4f, 0.4}))});
 	objects.push_back(new Sphere{ {8, 2, -4}, 2, Material::CreateDiffuse(Texture::CreateCheckered({ 0.6f, 0.3f, 0.2f }, { 1.0f, 1.0f, 1.0f})) });
 	objects.push_back(new ApplyZRotation(0, new PolygonMesh("src/stb_image/Rock.obj", 10, Material::CreateDiffuse(Texture::CreateFromImage("src/stb_image/Rock_Texture.jpg") ))));
@@ -37,8 +37,8 @@ BVH_Node* CreateBoundingBoxObjects(float time) {
 	objects.push_back(new AxisAlignedCube{ {-6, 0, 5}, {6, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.4f, 0.4f, 0.4f })) });
 	objects.push_back(new AxisAlignedCube{ {-6, 5, -6}, {6, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.4f, 0.4f, 0.4f })) });
 
-	objects.push_back(new Sphere{ {3 * sin(time * 0.1f), 1.5f, 3.5f}, 1.5f, Material::CreateDiffuseLight({5.0f, 2.0f, 2.0f})});
-	objects.push_back(new ApplyXRotation(time * 0.7f, new ApplyYRotation(time, new AxisAlignedCube{{-3, 1, -2}, 1.0f, Material::CreateDiffuse(Texture::CreateColored({1.0f, 1.0f, 1.0f}))})));
+	objects.push_back(new Sphere{ {3 * sin(time * 0.1f), 4.5f, 3.5f}, 2.5f, Material::CreateDiffuseLight({5.0f, 2.0f, 2.0f})});
+	objects.push_back( new ApplyXRotation(20.0f, new Fog({ -3, 1, 0 }, 3.0f, 0.5f, Texture::CreateColored({1.0f, 1.0f, 0.0f}))));
 #endif
 
 	// This object now owns the pointers, and is responsible for deleting them
@@ -46,7 +46,7 @@ BVH_Node* CreateBoundingBoxObjects(float time) {
 }
 
 World::World(float time)
-  : camera({ glm::vec3{ 0, 3, -8 }, glm::vec3{ 0, 0, 1 } }), 
+  : camera({ glm::vec3{ 0, 3, -10 }, glm::vec3{ 0, 0, 1 } }), 
 	skybox(std::string("src/stb_image/skybox12.png")), 
 	rootNode(CreateBoundingBoxObjects(time)),
 	noBoundingBoxObjects(CreateNoBoundingBoxObjects(time))
@@ -154,6 +154,17 @@ glm::vec3 World::GetRayColor(const Ray& ray, int bounceAmount) {
 		}
 		case MaterialType::DiffuseLight: {
 			return material.emittingColor;
+		}
+		case MaterialType::Isotropic: {
+			if (bounceAmount == 0)
+				return glm::vec3{ 0 };
+
+			Ray reflectedRay;
+			reflectedRay.pos = hitInfo.point;
+			reflectedRay.direction = GetRandomUnitSpherePoint();
+
+			glm::vec3 newRayCol = GetRayColor(reflectedRay, bounceAmount - 1);
+			return material.texture->GetColorValue(hitInfo.uv, hitInfo.point) * newRayCol;
 		}
 		case MaterialType::None:
 			return glm::vec3{ 0 };

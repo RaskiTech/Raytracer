@@ -103,13 +103,14 @@ struct UVTexture : public Texture {
 };
 
 enum class MaterialType {
-	None, Diffuse, Metal, DiffuseLight
+	None, Diffuse, Metal, Isotropic, DiffuseLight
 };
 struct Material {
 	Material() = default;
 	static Material CreateDiffuse(std::shared_ptr<Texture> tex) { return Material{ MaterialType::Diffuse, tex }; }
 	static Material CreateMetal(std::shared_ptr<Texture> tex) { return Material{ MaterialType::Metal, tex }; }
 	static Material CreateDiffuseLight(glm::vec3 emittingColor) { return Material{ MaterialType::DiffuseLight, nullptr, emittingColor }; }
+	static Material CreateIsotropic(std::shared_ptr<Texture> tex) { return Material{ MaterialType::Isotropic, tex }; }
 
 	MaterialType materialType = MaterialType::None;
 	std::shared_ptr<Texture> texture;
