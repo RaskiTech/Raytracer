@@ -20,17 +20,16 @@ std::vector<Object*> CreateNoBoundingBoxObjects(float time) {
 BVH_Node* CreateBoundingBoxObjects(float time) {
 	std::vector<Object*> objects = std::vector<Object*>();
 
-#if 0
+#if 1
 	objects.push_back(new AxisAlignedCube{ {6, 2, -9}, 2, Material::CreateDiffuse(Texture::CreateColored({0.4f, 0.4f, 0.4}))});
 	objects.push_back(new Sphere{ {8, 2, -4}, 2, Material::CreateDiffuse(Texture::CreateCheckered({ 0.6f, 0.3f, 0.2f }, { 1.0f, 1.0f, 1.0f})) });
-	objects.push_back(new ApplyZRotation(0, new PolygonMesh("src/stb_image/Rock.obj", 10, Material::CreateDiffuse(Texture::CreateFromImage("src/stb_image/Rock_Texture.jpg") ))));
-	Triangle* tri = new Triangle(Vertex{ glm::vec3{-1, 2, 0} }, Vertex{ glm::vec3{0, 4, 0} }, Vertex{ glm::vec3{1, 2, 0} });
+	objects.push_back(new ApplyMovement({ 0, 5, 0 }, new ApplyXRotation(90, new PolygonMesh("src/stb_image/tree.obj", 10, Material::CreateDiffuse(Texture::CreateFromImage("src/stb_image/tree_texture.png"))))));
 
 	for (int i = 0; i < 15; i++)
 		objects.push_back(new Sphere{ 
 			glm::vec3{i * 2.5f+10, glm::sin(i * 78.0f) * 1.9f + 1.0f, 15.0f * glm::sin(i * 34.4f)}, 
 			glm::sin(i * 78.0f) * 1.9f + 1.0f, 
-			Material::CreateDiffuse(Texture::CreateColored((1.0f + glm::vec3{ glm::sin(i), glm::sin(i * 1.7f), glm::sin(i) }) / 0.5f))});
+			Material::CreateDiffuse(Texture::CreateColored(0.5f + (glm::vec3{ glm::sin(i), glm::sin(i * 1.7f), glm::sin(i) } * 0.5f)))});
 #else
 	objects.push_back(new AxisAlignedCube{ {-6, 0, -6}, {-5, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.8f, 0.2f, 0.3f })) });
 	objects.push_back(new AxisAlignedCube{ {5, 0, -6}, {6, 6, 6 }, Material::CreateDiffuse(Texture::CreateColored({ 0.2f, 0.8f, 0.3f })) });

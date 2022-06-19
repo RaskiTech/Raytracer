@@ -99,11 +99,11 @@ ImageTexture::ImageTexture(const std::string& path) {
 	stbi_set_flip_vertically_on_load(true);
 
 	int x, y, channels;
-	imageData = (char*)stbi_load(path.c_str(), &x, &y, &channels, STBI_rgb);
+	imageData = (char*)stbi_load(path.c_str(), &x, &y, &channels, STBI_rgb_alpha);
 	size.x = x;
 	size.y = y;
-	if (channels != 3) {
-		std::cout << "The skybox had " << channels << " channels instead of 3. Does the path exists?" << std::endl;
+	if (channels != 3 && channels != 4) {
+		std::cout << "An image had " << channels << " channels. Does the path exists?" << std::endl;
 		__debugbreak();
 	}
 }
@@ -111,10 +111,17 @@ ImageTexture::~ImageTexture() {
 	stbi_image_free(imageData);
 }
 glm::vec3 ImageTexture::GetColorValue(const glm::vec2& uv, const glm::vec3& p) const {
-	int index = 3 * (int)((int)(uv.y * size.y) * size.x + (int)(uv.x * size.x));
+	int index = GetIndexFromUV(uv);
 
 	uint8_t c1 = imageData[index];
 	uint8_t c2 = imageData[index + 1];
 	uint8_t c3 = imageData[index + 2];
+	uint8_t c4 = imageData[index + 3];
 	return glm::vec3{ (float)c1, (float)c2, (float)c3 } / 255.0f;
+}
+
+bool ImageTexture::IsSolidInPosition(const glm::vec2& uv, const glm::vec3& p) const {
+	const float clipValue = 0.01f;
+	uint8_t alpha = imageData[GetIndexFromUV(uv) + 3];
+	return alpha > clipValue;
 }

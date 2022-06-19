@@ -434,8 +434,7 @@ std::vector<Vertex> LoadOBJ( std::istream& in ) {
     return verts;
 }
 
-BoundingBox GetExtentsFromPositionArray( const glm::vec3* pts, size_t stride, size_t count )
-{
+BoundingBox GetExtentsFromPositionArray( const glm::vec3* pts, size_t stride, size_t count ) {
     unsigned char* base = (unsigned char*)pts;
     glm::vec3 pmin( *(glm::vec3*)base );
     glm::vec3 pmax( *(glm::vec3*)base );
@@ -484,7 +483,7 @@ PolygonMesh::PolygonMesh(std::string pathToObjFile, float size, Material mat) : 
 	std::vector<Object*> tris;
 	tris.resize(vertices.size() / 3);
 	for (int i = 0; i < tris.size(); i++) {
-		tris[i] = new Triangle(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]);
+		tris[i] = new Triangle(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2], mat);
 	}
 	triangles = new BVH_Node(tris);
 }
@@ -547,6 +546,9 @@ bool Triangle::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 		if (hitInfo.uv.x < 0) hitInfo.uv.x += 1;
 		if (hitInfo.uv.y < 0) hitInfo.uv.y += 1;
 
+		if (!material.texture->IsSolidInPosition(hitInfo.uv, hitInfo.point))
+			return false;
+
 		return true;
 	}
 	else // This means that there is a line intersection but not a ray intersection.
@@ -593,5 +595,21 @@ bool Fog::Intersect(const Ray& ray, HitInfo& hitInfo) const {
 
 bool Fog::GetBoundingBox(BoundingBox& outBox) const {
 	boundary.GetBoundingBox(outBox);
+	return true;
+}
+
+bool ApplyMovement::Intersect(const Ray& ray, HitInfo& hitInfo) const {
+	Ray translatedRay = Ray(ray.pos - offset, ray.direction);
+	if (!target->Intersect(translatedRay, hitInfo))
+		return false;
+
+	hitInfo.point += offset;
+	return true;
+}
+
+bool ApplyMovement::GetBoundingBox(BoundingBox& outBox) const {
+	target->GetBoundingBox(outBox);
+	outBox.minCoord += offset;
+	outBox.maxCoord += offset;
 	return true;
 }

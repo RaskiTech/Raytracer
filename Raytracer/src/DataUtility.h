@@ -64,6 +64,7 @@ struct UVTexture;
 struct Texture {
 	virtual ~Texture() {}
 	virtual glm::vec3 GetColorValue(const glm::vec2& uv, const glm::vec3& p) const = 0;
+	virtual bool IsSolidInPosition(const glm::vec2& uv, const glm::vec3& p) const { return true; }
 
 	static std::shared_ptr<UVTexture> CreateUV() { return std::make_shared<UVTexture>(); }
 	static std::shared_ptr<ColorTexture> CreateColored(const glm::vec3& col) { return std::make_shared<ColorTexture>(col); }
@@ -75,7 +76,10 @@ struct ImageTexture : public Texture {
 	ImageTexture(const std::string& path);
 	~ImageTexture();
 
-	glm::vec3 GetColorValue(const glm::vec2& uv, const glm::vec3& p) const;
+	glm::vec3 GetColorValue(const glm::vec2& uv, const glm::vec3& p) const override;
+	bool IsSolidInPosition(const glm::vec2& uv, const glm::vec3& p) const override;
+
+	inline int GetIndexFromUV(const glm::vec2& uv) const { return 4 * (int)((int)(uv.y * size.y) * size.x + (int)(uv.x * size.x)); }
 
 	glm::uvec2 size;
 	char* imageData;
@@ -84,7 +88,7 @@ struct ColorTexture : public Texture {
 	ColorTexture() = default;
 	ColorTexture(const glm::vec3 color) : color(color) {}
 
-	glm::vec3 GetColorValue(const glm::vec2& uv, const glm::vec3& p) const { return color; }
+	glm::vec3 GetColorValue(const glm::vec2& uv, const glm::vec3& p) const override { return color; }
 
 	glm::vec3 color{ 0 };
 };
